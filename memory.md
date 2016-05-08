@@ -20,6 +20,57 @@ In addition, terminal objects can be varied.  You can have:
 * Ports and other things of the kind, if any.
 
 
+# The classes
+## Generalities
+
+* Sizes are represented as 0..3 for size 8*2^n, e.g. 0=8, 1=16, 2=32, 3=64.
+* Template parameter `_width_` is the databus width.
+* Template parameter `_ashift_` is the address bus shift, e.g. what the address counts (bytes, words, etc).
+* The `_new` suffixes will be gone at some point (when the old classes are removed and the collisions gone).
+* In the read/write handlers, the unmodified address is passed down.
+
+## Traits - handler_entry_size
+In the struct `handler_entry_size<_width_>`, three typedefs are defined:
+* `UINTX` points to `UINT<size>`
+* `READ` points to `read<size>_delegate`
+* `WRITE` points to `write<size>_delegate`
+
+## Root - handle_entry_new
+The root of all handlers is not a template.  It includes:
+* The address space, to avoid passing it down on each access
+* Flags, to know efficiently whether it's a dispatch entry, a trigger entry...
+* A reference counter, for auto-deletion when needed
+
+## Generic read/write handlers - handler_entry_read_new, handler_entry_write_new
+Inherit from handler_entry_new, templatized on `_width_` and
+`_ashift`.  Define a pure virtual method `read` (respectively `write`) to
+do an access.  Typedefs `UINTX` to `UINT<size>`.
+
+All handlers should inherit from one of these, and implement `read`
+(or `write`) appropriately.
+
+## Terminal read/write handlers - handler_entry_read_terminal_new, handler_entry_write_terminal_new
+Inherit from the generic handlers, add a base address and an address mask.
+
+## Memory zone read/write handlers - handler_entry_read_memory_new, handler_entry_write_memory_new
+Inherit from the terminal read/write handlers, add a base pointer of
+the appropriate type.  Implement the read/write method.
+
+## Standard delegate read/write handlers - handler_entry_read_single_new, handler_entry_write_single_new
+Inherit from the terminal read/write handlers, add a delegate of
+the appropriate type.  Implement the read/write method.
+
+## Subunit read/write handlers - handler_entry_read_multiple_new, handler_entry_write_multiple_new
+Inherit from the terminal read/write handlers, the delegates/data
+needed for subunit access.  Building that information is not
+implemented yet though.  Implement the read/write method.
+
+## Dispatching read/write handlers - handler_entry_read_dispatch_new, handler_entry_write_dispatch_new
+Inherit from the generic handlers, adds a templatization on the start
+and end bit in the address to take into account (boundaries included).
+Implement the read/write method.  Population method missing.
+
+
 # The plan
 
 * Build a first version of the handler class tree (in progress)
