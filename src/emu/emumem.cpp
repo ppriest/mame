@@ -1194,11 +1194,11 @@ private:
 // ======================> address_space_specific
 
 // this is a derived class of address_space with specific width, endianness, and table size
-template<int _width_, endianness_t _Endian, bool _Large>
+template<int _width_, int _ashift_, endianness_t _Endian, bool _Large>
 class address_space_specific : public address_space
 {
 	typedef typename handler_entry_size<_width_>::UINTX _NativeType;
-	typedef address_space_specific<_width_, _Endian, _Large> this_type;
+	typedef address_space_specific<_width_, _ashift_, _Endian, _Large> this_type;
 
 	// constants describing the native size
 	static const UINT32 NATIVE_BYTES = sizeof(_NativeType);
@@ -1819,25 +1819,6 @@ public:
 	address_table_setoffset m_setoffset;        // memory setoffset lookup table
 };
 
-typedef address_space_specific<0, ENDIANNESS_LITTLE, false> address_space_8le_small;
-typedef address_space_specific<0, ENDIANNESS_BIG,    false> address_space_8be_small;
-typedef address_space_specific<1, ENDIANNESS_LITTLE, false> address_space_16le_small;
-typedef address_space_specific<1, ENDIANNESS_BIG,    false> address_space_16be_small;
-typedef address_space_specific<2, ENDIANNESS_LITTLE, false> address_space_32le_small;
-typedef address_space_specific<2, ENDIANNESS_BIG,    false> address_space_32be_small;
-typedef address_space_specific<3, ENDIANNESS_LITTLE, false> address_space_64le_small;
-typedef address_space_specific<3, ENDIANNESS_BIG,    false> address_space_64be_small;
-
-typedef address_space_specific<0, ENDIANNESS_LITTLE, true> address_space_8le_large;
-typedef address_space_specific<0, ENDIANNESS_BIG,    true> address_space_8be_large;
-typedef address_space_specific<1, ENDIANNESS_LITTLE, true> address_space_16le_large;
-typedef address_space_specific<1, ENDIANNESS_BIG,    true> address_space_16be_large;
-typedef address_space_specific<2, ENDIANNESS_LITTLE, true> address_space_32le_large;
-typedef address_space_specific<2, ENDIANNESS_BIG,    true> address_space_32be_large;
-typedef address_space_specific<3, ENDIANNESS_LITTLE, true> address_space_64le_large;
-typedef address_space_specific<3, ENDIANNESS_BIG,    true> address_space_64be_large;
-
-
 
 //**************************************************************************
 //  GLOBAL VARIABLES
@@ -2130,70 +2111,166 @@ address_space &address_space::allocate(memory_manager &manager, const address_sp
 	// allocate one of the appropriate type
 	bool large = (config.addr2byte_end(0xffffffffUL >> (32 - config.m_addrbus_width)) >= (1 << 18));
 
-	switch (config.data_width())
+	switch (config.data_width() | config.addrbus_shift())
 	{
-		case 8:
+		case  8|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *global_alloc(address_space_8le_large(manager, memory, spacenum));
+					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_8le_small(manager, memory, spacenum));
+					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
 			}
 			else
 			{
 				if (large)
-					return *global_alloc(address_space_8be_large(manager, memory, spacenum));
+					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_8be_small(manager, memory, spacenum));
+					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
 			}
 
-		case 16:
+		case 16|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *global_alloc(address_space_16le_large(manager, memory, spacenum));
+					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_16le_small(manager, memory, spacenum));
+					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
 			}
 			else
 			{
 				if (large)
-					return *global_alloc(address_space_16be_large(manager, memory, spacenum));
+					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_16be_small(manager, memory, spacenum));
+					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
 			}
 
-		case 32:
+		case 16|1:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *global_alloc(address_space_32le_large(manager, memory, spacenum));
+					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_32le_small(manager, memory, spacenum));
+					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
 			}
 			else
 			{
 				if (large)
-					return *global_alloc(address_space_32be_large(manager, memory, spacenum));
+					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_32be_small(manager, memory, spacenum));
+					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
 			}
 
-		case 64:
+		case 32|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *global_alloc(address_space_64le_large(manager, memory, spacenum));
+					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_64le_small(manager, memory, spacenum));
+					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
 			}
 			else
 			{
 				if (large)
-					return *global_alloc(address_space_64be_large(manager, memory, spacenum));
+					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
 				else
-					return *global_alloc(address_space_64be_small(manager, memory, spacenum));
+					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 32|1:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 32|2:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 64|0:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 64|1:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 64|2:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+			}
+
+		case 64|3:
+			if (config.endianness() == ENDIANNESS_LITTLE)
+			{
+				if (large)
+					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+			}
+			else
+			{
+				if (large)
+					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+				else
+					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
 			}
 	}
 	throw emu_fatalerror("Invalid width %d specified for address_space::allocate", config.data_width());
