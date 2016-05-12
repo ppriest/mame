@@ -134,6 +134,315 @@ typedef device_delegate<void (address_space &, offs_t, UINT64, UINT64)> write64_
 typedef device_delegate<void (address_space &, offs_t)> setoffset_delegate;
 
 
+
+template<int _width_> struct handler_entry_size {};
+template<> struct handler_entry_size<0> { typedef UINT8  UINTX; typedef read8_delegate  READ; typedef write8_delegate  WRITE; };
+template<> struct handler_entry_size<1> { typedef UINT16 UINTX; typedef read16_delegate READ; typedef write16_delegate WRITE; };
+template<> struct handler_entry_size<2> { typedef UINT32 UINTX; typedef read32_delegate READ; typedef write32_delegate WRITE; };
+template<> struct handler_entry_size<3> { typedef UINT64 UINTX; typedef read64_delegate READ; typedef write64_delegate WRITE; };
+
+class handler_entry_new
+{
+	DISABLE_COPYING(handler_entry_new);
+
+public:
+	enum {
+		F_DISPATCH = 0x00000001,
+		F_TRIGGER  = 0x00000002,
+	};
+
+	handler_entry_new(address_space *space, UINT32 flags) { m_space = space; m_refcount = 1; m_flags = flags; }
+	virtual ~handler_entry_new() {}
+
+	inline void ref() { m_refcount++; }
+	inline void unref() { m_refcount--; if(!m_refcount) delete this; }
+	inline UINT32 flags() const { return m_flags; }
+
+protected:
+	address_space *m_space;
+	UINT32 m_refcount, m_flags;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_new : public handler_entry_new
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+
+	handler_entry_read_new(address_space *space, UINT32 flags) : handler_entry_new(space, flags) {}
+	~handler_entry_read_new() {}
+
+	virtual UINTX read(offs_t offset, UINTX mem_mask) = 0;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_new : public handler_entry_new
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+
+	handler_entry_write_new(address_space *space, UINT32 flags) : handler_entry_new(space, flags) {}
+	virtual ~handler_entry_write_new() {}
+
+	virtual void write(offs_t offset, UINTX data, UINTX mem_mask) = 0;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_terminal_new : public handler_entry_read_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+
+	handler_entry_read_terminal_new(address_space *space, UINT32 flags) : handler_entry_read_new<_width_, _ashift_>(space, flags) {}
+	~handler_entry_read_terminal_new() {}
+
+	inline void set_address_info(offs_t base, offs_t mask) { m_address_base = base; m_address_mask = mask; }
+
+protected:
+	offs_t m_address_base, m_address_mask;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_terminal_new : public handler_entry_write_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+
+	handler_entry_write_terminal_new(address_space *space, UINT32 flags) : handler_entry_write_new<_width_, _ashift_>(space, flags) {}
+	~handler_entry_write_terminal_new() {}
+
+	inline void set_address_info(offs_t base, offs_t mask) { m_address_base = base; m_address_mask = mask; }
+
+protected:
+	offs_t m_address_base, m_address_mask;
+};
+
+
+template<int _width_, int _ashift_> class handler_entry_read_memory_new : public handler_entry_read_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_memory_new(address_space *space) : handler_entry_read_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_read_memory_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+
+	inline void set_base(UINTX *base) { m_base = base; }
+
+private:
+	UINTX *m_base;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_memory_new : public handler_entry_write_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_memory_new(address_space *space) : handler_entry_write_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_write_memory_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+
+	inline void set_base(UINTX *base) { m_base = base; }
+
+private:
+	UINTX *m_base;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_single_new : public handler_entry_read_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef typename handler_entry_size<_width_>::READ  READ;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_single_new(address_space *space, READ delegate) : handler_entry_read_terminal_new<_width_, _ashift_>(space, 0) { m_delegate = delegate; }
+	~handler_entry_read_single_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+
+private:
+	READ m_delegate;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_single_new : public handler_entry_write_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef typename handler_entry_size<_width_>::WRITE WRITE;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_single_new(address_space *space, WRITE delegate) : handler_entry_write_terminal_new<_width_, _ashift_>(space, 0) { m_delegate = delegate; }
+	~handler_entry_write_single_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+
+private:
+	WRITE m_delegate;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_unmapped_new : public handler_entry_read_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_unmapped_new(address_space *space) : handler_entry_read_terminal_new<_width_, _ashift_>(space, 0) { }
+	~handler_entry_read_unmapped_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_unmapped_new : public handler_entry_write_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_unmapped_new(address_space *space) : handler_entry_write_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_write_unmapped_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_nop_new : public handler_entry_read_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_nop_new(address_space *space) : handler_entry_read_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_read_nop_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_nop_new : public handler_entry_write_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_nop_new(address_space *space) : handler_entry_write_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_write_nop_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+};
+
+template<int _width_, int _ashift_> class handler_entry_read_multiple_new : public handler_entry_read_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef typename handler_entry_size<_width_>::READ  READ;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_multiple_new(address_space *space) : handler_entry_read_terminal_new<_width_, _ashift_>(space, 0) { }
+	~handler_entry_read_multiple_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+
+private:
+	enum {
+		SUBUNIT_COUNT = 1 << (_width_ - _ashift_)
+	};
+
+	struct subunit_info
+	{
+		UINT32              m_mask;                 // mask (ff, ffff or ffffffff)
+		INT32               m_offset;               // offset to add to the address
+		UINT32              m_multiplier;           // multiplier to the pre-split address
+		UINT8               m_size;                 // size (8, 16 or 32)
+		UINT8               m_shift;                // shift of the subunit
+	};
+
+	subunit_info            m_subunit_infos[SUBUNIT_COUNT]; // subunit information
+	read8_delegate          m_read8 [SUBUNIT_COUNT];        //  8-bits read delegates
+	read16_delegate         m_read16[SUBUNIT_COUNT];        // 16-bits read delegates
+	read32_delegate         m_read32[SUBUNIT_COUNT];        // 32-bits read delegates
+	UINTX                   m_invsubmask;                   // inverted mask of the populated subunits
+	UINT8                   m_subunits;                     // number of subunits
+};
+
+template<int _width_, int _ashift_> class handler_entry_write_multiple_new : public handler_entry_write_terminal_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef typename handler_entry_size<_width_>::WRITE WRITE;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_multiple_new(address_space *space) : handler_entry_write_terminal_new<_width_, _ashift_>(space, 0) {}
+	~handler_entry_write_multiple_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+
+private:
+	enum {
+		SUBUNIT_COUNT = 1 << (_width_ - _ashift_)
+	};
+
+	struct subunit_info
+	{
+		UINT32              m_mask;                 // mask (ff, ffff or ffffffff)
+		INT32               m_offset;               // offset to add to the address
+		UINT32              m_multiplier;           // multiplier to the pre-split address
+		UINT8               m_size;                 // size (0-2)
+		UINT8               m_shift;                // shift of the subunit
+	};
+
+	subunit_info            m_subunit_infos[SUBUNIT_COUNT]; // subunit information
+	write8_delegate         m_write8 [SUBUNIT_COUNT];       //  8-bits write delegates
+	write16_delegate        m_write16[SUBUNIT_COUNT];       // 16-bits write delegates
+	write32_delegate        m_write32[SUBUNIT_COUNT];       // 32-bits write delegates
+	UINTX                   m_invsubmask;                   // inverted mask of the populated subunits
+	UINT8                   m_subunits;                     // number of subunits
+};
+
+
+template<int _highbits_, int _lowbits_, int _width_, int _ashift_> class handler_entry_read_dispatch_new : public handler_entry_read_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_read_dispatch_new(address_space *space) : handler_entry_read_new<_width_, _ashift_>(space, 0) { memset(m_dispatch, 0, sizeof(m_dispatch)); }
+	~handler_entry_read_dispatch_new() {}
+
+	UINTX read(offs_t offset, UINTX mem_mask) override;
+
+protected:
+	enum {
+		BITCOUNT = _highbits_ - _lowbits_ + 1,
+		BITMASK  = (1 << BITCOUNT) - 1
+	};
+
+	handler_entry_read_new<_width_, _ashift_> *m_dispatch[1 << BITCOUNT];
+};
+
+template<int _highbits_, int _lowbits_, int _width_, int _ashift_> class handler_entry_write_dispatch_new : public handler_entry_write_new<_width_, _ashift_>
+{
+public:
+	typedef typename handler_entry_size<_width_>::UINTX UINTX;
+	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
+
+	handler_entry_write_dispatch_new(address_space *space) : handler_entry_write_new<_width_, _ashift_>(space, 0) { memset(m_dispatch, 0, sizeof(m_dispatch)); }
+	~handler_entry_write_dispatch_new() {}
+
+	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+
+protected:
+	enum {
+		BITCOUNT = _highbits_ - _lowbits_ + 1,
+		BITMASK  = (1 << BITCOUNT) - 1
+	};
+
+	handler_entry_write_new<_width_, _ashift_> *m_dispatch[1 << BITCOUNT];
+};
+
+
+
+
+
+
+
 // ======================> direct_read_data
 
 // direct_read_data contains state data for direct read access
