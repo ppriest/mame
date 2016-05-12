@@ -485,59 +485,57 @@ template class handler_entry_write_nop_new<3, 2>;
 template class handler_entry_write_nop_new<3, 3>;
 
 
-template<int _highbits_, int _lowbits_, int _width_, int _ashift_> typename handler_entry_size<_width_>::UINTX handler_entry_read_dispatch_new<_highbits_, _lowbits_, _width_, _ashift_>::read(offs_t offset, UINTX mem_mask)
+template<int _highbits_, int _width_, int _ashift_> handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::handler_entry_read_dispatch_new(address_space *space, handler_entry_read_new<_width_, _ashift_> *handler) : handler_entry_read_new<_width_, _ashift_>(space, 0)
+{
+	if (!handler)
+		handler = space->get_unmap_r<_width_, _ashift_>();
+	handler->ref(1 << BITCOUNT);
+	for(unsigned int i=0; i != (1 << BITCOUNT); i++)
+		m_dispatch[i] = handler;
+}
+
+template<int _highbits_, int _width_, int _ashift_> typename handler_entry_size<_width_>::UINTX handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::read(offs_t offset, UINTX mem_mask)
 {
 	return m_dispatch[(offset >> _lowbits_) & BITMASK]->read(offset, mem_mask);
 }
 
-template<int _highbits_, int _lowbits_, int _width_, int _ashift_> void handler_entry_write_dispatch_new<_highbits_, _lowbits_, _width_, _ashift_>::write(offs_t offset, UINTX data, UINTX mem_mask)
+template<int _highbits_, int _width_, int _ashift_> handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::handler_entry_write_dispatch_new(address_space *space, handler_entry_write_new<_width_, _ashift_> *handler) : handler_entry_write_new<_width_, _ashift_>(space, 0)
+{
+	if (!handler)
+		handler = space->get_unmap_w<_width_, _ashift_>();
+	handler->ref(1 << BITCOUNT);
+	for(unsigned int i=0; i != (1 << BITCOUNT); i++)
+		m_dispatch[i] = handler;
+}
+
+template<int _highbits_, int _width_, int _ashift_> void handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::write(offs_t offset, UINTX data, UINTX mem_mask)
 {
 	m_dispatch[(offset >> _lowbits_) & BITMASK]->write(offset, data, mem_mask);
 }
 
 
 
-template class handler_entry_read_dispatch_new<31, 14, 0, 0>;
-template class handler_entry_read_dispatch_new<13,  0, 0, 0>;
-template class handler_entry_read_dispatch_new<31, 14, 1, 0>;
-template class handler_entry_read_dispatch_new<13,  1, 1, 0>;
-template class handler_entry_read_dispatch_new<31, 14, 2, 0>;
-template class handler_entry_read_dispatch_new<13,  2, 2, 0>;
-template class handler_entry_read_dispatch_new<31, 14, 3, 0>;
-template class handler_entry_read_dispatch_new<13,  3, 3, 0>;
-template class handler_entry_read_dispatch_new<31, 14, 1, 1>;
-template class handler_entry_read_dispatch_new<13,  0, 1, 1>;
-template class handler_entry_read_dispatch_new<31, 14, 2, 1>;
-template class handler_entry_read_dispatch_new<13,  1, 2, 1>;
-template class handler_entry_read_dispatch_new<31, 14, 3, 1>;
-template class handler_entry_read_dispatch_new<13,  2, 3, 1>;
-template class handler_entry_read_dispatch_new<31, 14, 2, 2>;
-template class handler_entry_read_dispatch_new<13,  0, 2, 2>;
-template class handler_entry_read_dispatch_new<31, 14, 3, 2>;
-template class handler_entry_read_dispatch_new<13,  1, 3, 2>;
-template class handler_entry_read_dispatch_new<31, 14, 3, 3>;
-template class handler_entry_read_dispatch_new<13,  0, 3, 3>;
+template class handler_entry_read_dispatch_new<31, 0, 0>;
+template class handler_entry_read_dispatch_new<31, 1, 0>;
+template class handler_entry_read_dispatch_new<31, 2, 0>;
+template class handler_entry_read_dispatch_new<31, 3, 0>;
+template class handler_entry_read_dispatch_new<31, 1, 1>;
+template class handler_entry_read_dispatch_new<31, 2, 1>;
+template class handler_entry_read_dispatch_new<31, 3, 1>;
+template class handler_entry_read_dispatch_new<31, 2, 2>;
+template class handler_entry_read_dispatch_new<31, 3, 2>;
+template class handler_entry_read_dispatch_new<31, 3, 3>;
 
-template class handler_entry_write_dispatch_new<31, 14, 0, 0>;
-template class handler_entry_write_dispatch_new<13,  0, 0, 0>;
-template class handler_entry_write_dispatch_new<31, 14, 1, 0>;
-template class handler_entry_write_dispatch_new<13,  1, 1, 0>;
-template class handler_entry_write_dispatch_new<31, 14, 2, 0>;
-template class handler_entry_write_dispatch_new<13,  2, 2, 0>;
-template class handler_entry_write_dispatch_new<31, 14, 3, 0>;
-template class handler_entry_write_dispatch_new<13,  3, 3, 0>;
-template class handler_entry_write_dispatch_new<31, 14, 1, 1>;
-template class handler_entry_write_dispatch_new<13,  0, 1, 1>;
-template class handler_entry_write_dispatch_new<31, 14, 2, 1>;
-template class handler_entry_write_dispatch_new<13,  1, 2, 1>;
-template class handler_entry_write_dispatch_new<31, 14, 3, 1>;
-template class handler_entry_write_dispatch_new<13,  2, 3, 1>;
-template class handler_entry_write_dispatch_new<31, 14, 2, 2>;
-template class handler_entry_write_dispatch_new<13,  0, 2, 2>;
-template class handler_entry_write_dispatch_new<31, 14, 3, 2>;
-template class handler_entry_write_dispatch_new<13,  1, 3, 2>;
-template class handler_entry_write_dispatch_new<31, 14, 3, 3>;
-template class handler_entry_write_dispatch_new<13,  0, 3, 3>;
+template class handler_entry_write_dispatch_new<31, 0, 0>;
+template class handler_entry_write_dispatch_new<31, 1, 0>;
+template class handler_entry_write_dispatch_new<31, 2, 0>;
+template class handler_entry_write_dispatch_new<31, 3, 0>;
+template class handler_entry_write_dispatch_new<31, 1, 1>;
+template class handler_entry_write_dispatch_new<31, 2, 1>;
+template class handler_entry_write_dispatch_new<31, 3, 1>;
+template class handler_entry_write_dispatch_new<31, 2, 2>;
+template class handler_entry_write_dispatch_new<31, 3, 2>;
+template class handler_entry_write_dispatch_new<31, 3, 3>;
 
 
 
@@ -2029,6 +2027,52 @@ address_space::address_space(memory_manager &manager, device_memory_interface &m
 {
 	// notify the device
 	memory.set_address_space(spacenum, *this);
+
+	switch (m_config.m_databus_width | m_config.m_addrbus_shift)
+	{
+		case  8|0:
+			m_unmap_r = new handler_entry_read_unmapped_new <0, 0>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<0, 0>(this);
+			break;
+		case 16|0:
+			m_unmap_r = new handler_entry_read_unmapped_new <1, 0>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<1, 0>(this);
+			break;
+		case 16|1:
+			m_unmap_r = new handler_entry_read_unmapped_new <1, 1>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<1, 1>(this);
+			break;
+		case 32|0:
+			m_unmap_r = new handler_entry_read_unmapped_new <2, 0>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<2, 0>(this);
+			break;
+		case 32|1:
+			m_unmap_r = new handler_entry_read_unmapped_new <2, 1>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<2, 1>(this);
+			break;
+		case 32|2:
+			m_unmap_r = new handler_entry_read_unmapped_new <2, 2>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<2, 2>(this);
+			break;
+		case 64|0:
+			m_unmap_r = new handler_entry_read_unmapped_new <3, 0>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<3, 0>(this);
+			break;
+		case 64|1:
+			m_unmap_r = new handler_entry_read_unmapped_new <3, 1>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<3, 1>(this);
+			break;
+		case 64|2:
+			m_unmap_r = new handler_entry_read_unmapped_new <3, 2>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<3, 2>(this);
+			break;
+		case 64|3:
+			m_unmap_r = new handler_entry_read_unmapped_new <3, 3>(this);
+			m_unmap_r = new handler_entry_write_unmapped_new<3, 3>(this);
+			break;
+		default:
+			fatalerror("Unhandled/invalid datawidth/address shift combination %d/%d\n", m_config.m_databus_width, m_config.m_addrbus_shift);
+	}
 }
 
 
@@ -2038,6 +2082,8 @@ address_space::address_space(memory_manager &manager, device_memory_interface &m
 
 address_space::~address_space()
 {
+	m_unmap_r->unref();
+	m_unmap_w->unref();
 }
 
 

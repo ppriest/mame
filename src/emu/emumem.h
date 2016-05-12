@@ -141,6 +141,17 @@ template<> struct handler_entry_size<1> { typedef UINT16 UINTX; typedef read16_d
 template<> struct handler_entry_size<2> { typedef UINT32 UINTX; typedef read32_delegate READ; typedef write32_delegate WRITE; };
 template<> struct handler_entry_size<3> { typedef UINT64 UINTX; typedef read64_delegate READ; typedef write64_delegate WRITE; };
 
+static inline constexpr int handler_entry_dispatch_lowbits(int highbits, int width, int ashift)
+{
+	if(highbits > 48)
+		return 48;
+	if(highbits > 32)
+		return 32;
+	if(highbits > 14)
+		return 14;
+	return width - ashift;
+}
+
 class handler_entry_new
 {
 	DISABLE_COPYING(handler_entry_new);
@@ -154,8 +165,8 @@ public:
 	handler_entry_new(address_space *space, UINT32 flags) { m_space = space; m_refcount = 1; m_flags = flags; }
 	virtual ~handler_entry_new() {}
 
-	inline void ref() { m_refcount++; }
-	inline void unref() { m_refcount--; if(!m_refcount) delete this; }
+	inline void ref(int count = 1) { m_refcount += count; }
+	inline void unref(int count = 1) { m_refcount -= count; if(!m_refcount) delete this; }
 	inline UINT32 flags() const { return m_flags; }
 
 protected:
@@ -397,19 +408,20 @@ private:
 };
 
 
-template<int _highbits_, int _lowbits_, int _width_, int _ashift_> class handler_entry_read_dispatch_new : public handler_entry_read_new<_width_, _ashift_>
+template<int _highbits_, int _width_, int _ashift_> class handler_entry_read_dispatch_new : public handler_entry_read_new<_width_, _ashift_>
 {
 public:
 	typedef typename handler_entry_size<_width_>::UINTX UINTX;
 	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
 
-	handler_entry_read_dispatch_new(address_space *space) : handler_entry_read_new<_width_, _ashift_>(space, 0) { memset(m_dispatch, 0, sizeof(m_dispatch)); }
+	handler_entry_read_dispatch_new(address_space *space, handler_entry_read_new<_width_, _ashift_> *handler);
 	~handler_entry_read_dispatch_new() {}
 
 	UINTX read(offs_t offset, UINTX mem_mask) override;
 
 protected:
 	enum {
+		_lowbits_ = handler_entry_dispatch_lowbits(_highbits_, _width_, _ashift_),
 		BITCOUNT = _highbits_ - _lowbits_ + 1,
 		BITMASK  = (1 << BITCOUNT) - 1
 	};
@@ -417,19 +429,20 @@ protected:
 	handler_entry_read_new<_width_, _ashift_> *m_dispatch[1 << BITCOUNT];
 };
 
-template<int _highbits_, int _lowbits_, int _width_, int _ashift_> class handler_entry_write_dispatch_new : public handler_entry_write_new<_width_, _ashift_>
+template<int _highbits_, int _width_, int _ashift_> class handler_entry_write_dispatch_new : public handler_entry_write_new<_width_, _ashift_>
 {
 public:
 	typedef typename handler_entry_size<_width_>::UINTX UINTX;
 	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
 
-	handler_entry_write_dispatch_new(address_space *space) : handler_entry_write_new<_width_, _ashift_>(space, 0) { memset(m_dispatch, 0, sizeof(m_dispatch)); }
+	handler_entry_write_dispatch_new(address_space *space, handler_entry_write_new<_width_, _ashift_> *handler);
 	~handler_entry_write_dispatch_new() {}
 
 	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
 
 protected:
 	enum {
+		_lowbits_ = handler_entry_dispatch_lowbits(_highbits_, _width_, _ashift_),
 		BITCOUNT = _highbits_ - _lowbits_ + 1,
 		BITMASK  = (1 << BITCOUNT) - 1
 	};
@@ -752,6 +765,9 @@ public:
 	void allocate_memory();
 	void locate_memory();
 
+	template<int _width_, int _ashift_> handler_entry_read_unmapped_new <_width_, _ashift_> *get_unmap_r() const { return static_cast<handler_entry_read_unmapped_new <_width_, _ashift_> *>(m_unmap_r); }
+	template<int _width_, int _ashift_> handler_entry_write_unmapped_new<_width_, _ashift_> *get_unmap_w() const { return static_cast<handler_entry_write_unmapped_new<_width_, _ashift_> *>(m_unmap_w); }
+
 private:
 	// internal helpers
 	virtual address_table_read &read() = 0;
@@ -789,6 +805,10 @@ protected:
 	const char *            m_name;             // friendly name of the address space
 	UINT8                   m_addrchars;        // number of characters to use for physical addresses
 	UINT8                   m_logaddrchars;     // number of characters to use for logical addresses
+
+	handler_entry_new       *m_unmap_r;
+	handler_entry_new       *m_unmap_w;
+
 
 private:
 	memory_manager &        m_manager;          // reference to the owning manager
