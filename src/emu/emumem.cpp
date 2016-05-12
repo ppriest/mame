@@ -251,12 +251,12 @@ enum
 
 template<int _width_, int _ashift_> void handler_entry_read_new<_width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler)
 {
-	fatalerror("populate called on non-distaching class\n");
+	fatalerror("populate called on non-dispatching class\n");
 }
 
 template<int _width_, int _ashift_> void handler_entry_write_new<_width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler)
 {
-	fatalerror("populate called on non-distaching class\n");
+	fatalerror("populate called on non-dispatching class\n");
 }
 
 template<int _width_, int _ashift_> typename handler_entry_size<_width_>::UINTX handler_entry_read_memory_new<_width_, _ashift_>::read(offs_t offset, UINTX mem_mask)
@@ -518,6 +518,7 @@ template<int _highbits_, int _width_, int _ashift_> typename handler_entry_size<
 
 template<int _highbits_, int _width_, int _ashift_> void handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler)
 {
+	fatalerror("populate called on dispatching class, implement it damnit :-)\n");
 }
 
 template<int _highbits_, int _width_, int _ashift_> handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::handler_entry_write_dispatch_new(address_space *space, handler_entry_write_new<_width_, _ashift_> *handler) : handler_entry_write_new<_width_, _ashift_>(space, 0)
@@ -542,6 +543,7 @@ template<int _highbits_, int _width_, int _ashift_> void handler_entry_write_dis
 
 template<int _highbits_, int _width_, int _ashift_> void handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler)
 {
+	fatalerror("populate called on dispatching class, implement it damnit :-)\n");
 }
 
 
@@ -1192,10 +1194,11 @@ private:
 // ======================> address_space_specific
 
 // this is a derived class of address_space with specific width, endianness, and table size
-template<typename _NativeType, endianness_t _Endian, bool _Large>
+template<int _width_, endianness_t _Endian, bool _Large>
 class address_space_specific : public address_space
 {
-	typedef address_space_specific<_NativeType, _Endian, _Large> this_type;
+	typedef typename handler_entry_size<_width_>::UINTX _NativeType;
+	typedef address_space_specific<_width_, _Endian, _Large> this_type;
 
 	// constants describing the native size
 	static const UINT32 NATIVE_BYTES = sizeof(_NativeType);
@@ -1816,23 +1819,23 @@ public:
 	address_table_setoffset m_setoffset;        // memory setoffset lookup table
 };
 
-typedef address_space_specific<UINT8,  ENDIANNESS_LITTLE, false> address_space_8le_small;
-typedef address_space_specific<UINT8,  ENDIANNESS_BIG,    false> address_space_8be_small;
-typedef address_space_specific<UINT16, ENDIANNESS_LITTLE, false> address_space_16le_small;
-typedef address_space_specific<UINT16, ENDIANNESS_BIG,    false> address_space_16be_small;
-typedef address_space_specific<UINT32, ENDIANNESS_LITTLE, false> address_space_32le_small;
-typedef address_space_specific<UINT32, ENDIANNESS_BIG,    false> address_space_32be_small;
-typedef address_space_specific<UINT64, ENDIANNESS_LITTLE, false> address_space_64le_small;
-typedef address_space_specific<UINT64, ENDIANNESS_BIG,    false> address_space_64be_small;
+typedef address_space_specific<0, ENDIANNESS_LITTLE, false> address_space_8le_small;
+typedef address_space_specific<0, ENDIANNESS_BIG,    false> address_space_8be_small;
+typedef address_space_specific<1, ENDIANNESS_LITTLE, false> address_space_16le_small;
+typedef address_space_specific<1, ENDIANNESS_BIG,    false> address_space_16be_small;
+typedef address_space_specific<2, ENDIANNESS_LITTLE, false> address_space_32le_small;
+typedef address_space_specific<2, ENDIANNESS_BIG,    false> address_space_32be_small;
+typedef address_space_specific<3, ENDIANNESS_LITTLE, false> address_space_64le_small;
+typedef address_space_specific<3, ENDIANNESS_BIG,    false> address_space_64be_small;
 
-typedef address_space_specific<UINT8,  ENDIANNESS_LITTLE, true> address_space_8le_large;
-typedef address_space_specific<UINT8,  ENDIANNESS_BIG,    true> address_space_8be_large;
-typedef address_space_specific<UINT16, ENDIANNESS_LITTLE, true> address_space_16le_large;
-typedef address_space_specific<UINT16, ENDIANNESS_BIG,    true> address_space_16be_large;
-typedef address_space_specific<UINT32, ENDIANNESS_LITTLE, true> address_space_32le_large;
-typedef address_space_specific<UINT32, ENDIANNESS_BIG,    true> address_space_32be_large;
-typedef address_space_specific<UINT64, ENDIANNESS_LITTLE, true> address_space_64le_large;
-typedef address_space_specific<UINT64, ENDIANNESS_BIG,    true> address_space_64be_large;
+typedef address_space_specific<0, ENDIANNESS_LITTLE, true> address_space_8le_large;
+typedef address_space_specific<0, ENDIANNESS_BIG,    true> address_space_8be_large;
+typedef address_space_specific<1, ENDIANNESS_LITTLE, true> address_space_16le_large;
+typedef address_space_specific<1, ENDIANNESS_BIG,    true> address_space_16be_large;
+typedef address_space_specific<2, ENDIANNESS_LITTLE, true> address_space_32le_large;
+typedef address_space_specific<2, ENDIANNESS_BIG,    true> address_space_32be_large;
+typedef address_space_specific<3, ENDIANNESS_LITTLE, true> address_space_64le_large;
+typedef address_space_specific<3, ENDIANNESS_BIG,    true> address_space_64be_large;
 
 
 
