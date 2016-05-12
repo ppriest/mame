@@ -183,6 +183,7 @@ public:
 	~handler_entry_read_new() {}
 
 	virtual UINTX read(offs_t offset, UINTX mem_mask) = 0;
+	virtual void populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler);
 };
 
 template<int _width_, int _ashift_> class handler_entry_write_new : public handler_entry_new
@@ -194,6 +195,7 @@ public:
 	virtual ~handler_entry_write_new() {}
 
 	virtual void write(offs_t offset, UINTX data, UINTX mem_mask) = 0;
+	virtual void populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler);
 };
 
 template<int _width_, int _ashift_> class handler_entry_read_terminal_new : public handler_entry_read_new<_width_, _ashift_>
@@ -415,18 +417,20 @@ public:
 	typedef handler_entry_read_terminal_new<_width_,_ashift_> inh;
 
 	handler_entry_read_dispatch_new(address_space *space, handler_entry_read_new<_width_, _ashift_> *handler);
-	~handler_entry_read_dispatch_new() {}
+	~handler_entry_read_dispatch_new();
 
 	UINTX read(offs_t offset, UINTX mem_mask) override;
+	void populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler) override;
 
 protected:
 	enum {
 		_lowbits_ = handler_entry_dispatch_lowbits(_highbits_, _width_, _ashift_),
-		BITCOUNT = _highbits_ - _lowbits_ + 1,
-		BITMASK  = (1 << BITCOUNT) - 1
+		BITCOUNT  = _highbits_ - _lowbits_ + 1,
+		BITMASK   = (1 << BITCOUNT) - 1,
+		COUNT     = 1 << BITCOUNT
 	};
 
-	handler_entry_read_new<_width_, _ashift_> *m_dispatch[1 << BITCOUNT];
+	handler_entry_read_new<_width_, _ashift_> *m_dispatch[COUNT];
 };
 
 template<int _highbits_, int _width_, int _ashift_> class handler_entry_write_dispatch_new : public handler_entry_write_new<_width_, _ashift_>
@@ -436,18 +440,20 @@ public:
 	typedef handler_entry_write_terminal_new<_width_,_ashift_> inh;
 
 	handler_entry_write_dispatch_new(address_space *space, handler_entry_write_new<_width_, _ashift_> *handler);
-	~handler_entry_write_dispatch_new() {}
+	~handler_entry_write_dispatch_new();
 
 	void write(offs_t offset, UINTX data, UINTX mem_mask) override;
+	void populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler) override;
 
 protected:
 	enum {
 		_lowbits_ = handler_entry_dispatch_lowbits(_highbits_, _width_, _ashift_),
-		BITCOUNT = _highbits_ - _lowbits_ + 1,
-		BITMASK  = (1 << BITCOUNT) - 1
+		BITCOUNT  = _highbits_ - _lowbits_ + 1,
+		BITMASK   = (1 << BITCOUNT) - 1,
+		COUNT     = 1 << BITCOUNT
 	};
 
-	handler_entry_write_new<_width_, _ashift_> *m_dispatch[1 << BITCOUNT];
+	handler_entry_write_new<_width_, _ashift_> *m_dispatch[COUNT];
 };
 
 

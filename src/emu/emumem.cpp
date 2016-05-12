@@ -248,6 +248,17 @@ enum
 //**************************************************************************
 
 
+
+template<int _width_, int _ashift_> void handler_entry_read_new<_width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler)
+{
+	fatalerror("populate called on non-distaching class\n");
+}
+
+template<int _width_, int _ashift_> void handler_entry_write_new<_width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler)
+{
+	fatalerror("populate called on non-distaching class\n");
+}
+
 template<int _width_, int _ashift_> typename handler_entry_size<_width_>::UINTX handler_entry_read_memory_new<_width_, _ashift_>::read(offs_t offset, UINTX mem_mask)
 {
 	return m_base[((offset - inh::m_address_base) & inh::m_address_mask) >> (_width_ - _ashift_)];
@@ -489,9 +500,15 @@ template<int _highbits_, int _width_, int _ashift_> handler_entry_read_dispatch_
 {
 	if (!handler)
 		handler = space->get_unmap_r<_width_, _ashift_>();
-	handler->ref(1 << BITCOUNT);
-	for(unsigned int i=0; i != (1 << BITCOUNT); i++)
+	handler->ref(COUNT);
+	for(unsigned int i=0; i != COUNT; i++)
 		m_dispatch[i] = handler;
+}
+
+template<int _highbits_, int _width_, int _ashift_> handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::~handler_entry_read_dispatch_new()
+{
+	for(unsigned int i=0; i != COUNT; i++)
+		m_dispatch[i]->unref();
 }
 
 template<int _highbits_, int _width_, int _ashift_> typename handler_entry_size<_width_>::UINTX handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::read(offs_t offset, UINTX mem_mask)
@@ -499,18 +516,32 @@ template<int _highbits_, int _width_, int _ashift_> typename handler_entry_size<
 	return m_dispatch[(offset >> _lowbits_) & BITMASK]->read(offset, mem_mask);
 }
 
+template<int _highbits_, int _width_, int _ashift_> void handler_entry_read_dispatch_new<_highbits_, _width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_read_new<_width_, _ashift_> *handler)
+{
+}
+
 template<int _highbits_, int _width_, int _ashift_> handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::handler_entry_write_dispatch_new(address_space *space, handler_entry_write_new<_width_, _ashift_> *handler) : handler_entry_write_new<_width_, _ashift_>(space, 0)
 {
 	if (!handler)
 		handler = space->get_unmap_w<_width_, _ashift_>();
-	handler->ref(1 << BITCOUNT);
-	for(unsigned int i=0; i != (1 << BITCOUNT); i++)
+	handler->ref(COUNT);
+	for(unsigned int i=0; i != COUNT; i++)
 		m_dispatch[i] = handler;
+}
+
+template<int _highbits_, int _width_, int _ashift_> handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::~handler_entry_write_dispatch_new()
+{
+	for(unsigned int i=0; i != COUNT; i++)
+		m_dispatch[i]->unref();
 }
 
 template<int _highbits_, int _width_, int _ashift_> void handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::write(offs_t offset, UINTX data, UINTX mem_mask)
 {
 	m_dispatch[(offset >> _lowbits_) & BITMASK]->write(offset, data, mem_mask);
+}
+
+template<int _highbits_, int _width_, int _ashift_> void handler_entry_write_dispatch_new<_highbits_, _width_, _ashift_>::populate(offs_t start, offs_t end, offs_t mirror, handler_entry_write_new<_width_, _ashift_> *handler)
+{
 }
 
 
