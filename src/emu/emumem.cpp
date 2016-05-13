@@ -1212,7 +1212,7 @@ class address_space_specific : public address_space
 
 public:
 	// construction/destruction
-	address_space_specific(memory_manager &manager, device_memory_interface &memory, address_spacenum spacenum)
+	address_space_specific(memory_manager &manager, device_memory_interface &memory, address_spacenum spacenum, int address_width)
 		: address_space(manager, memory, spacenum, _Large),
 			m_read(*this, _Large),
 			m_write(*this, _Large),
@@ -1353,6 +1353,44 @@ public:
 			printf("                        (0x00ffffffffffffff) = "); printf("%s\n", core_i64_hex_format(result64 = read_qword_unaligned(address, U64(0x00ffffffffffffff)), 16)); assert((result64 & U64(0x00ffffffffffffff)) == (expected64 & U64(0x00ffffffffffffff)));
 		}
 #endif
+		m_unmap_r = new handler_entry_read_unmapped_new <_width_, _ashift_>(this);
+		m_unmap_w = new handler_entry_write_unmapped_new<_width_, _ashift_>(this);
+
+		switch (address_width - 1) {
+			case  0: m_root_read = new handler_entry_read_dispatch_new< std::max(0, _width_), _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< std::max(0, _width_), _width_, _ashift_>(this, nullptr); break;
+			case  1: m_root_read = new handler_entry_read_dispatch_new< std::max(1, _width_), _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< std::max(1, _width_), _width_, _ashift_>(this, nullptr); break;
+			case  2: m_root_read = new handler_entry_read_dispatch_new< std::max(2, _width_), _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< std::max(2, _width_), _width_, _ashift_>(this, nullptr); break;
+			case  3: m_root_read = new handler_entry_read_dispatch_new< 3, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 3, _width_, _ashift_>(this, nullptr); break;
+			case  4: m_root_read = new handler_entry_read_dispatch_new< 4, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 4, _width_, _ashift_>(this, nullptr); break;
+			case  5: m_root_read = new handler_entry_read_dispatch_new< 5, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 5, _width_, _ashift_>(this, nullptr); break;
+			case  6: m_root_read = new handler_entry_read_dispatch_new< 6, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 6, _width_, _ashift_>(this, nullptr); break;
+			case  7: m_root_read = new handler_entry_read_dispatch_new< 7, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 7, _width_, _ashift_>(this, nullptr); break;
+			case  8: m_root_read = new handler_entry_read_dispatch_new< 8, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 8, _width_, _ashift_>(this, nullptr); break;
+			case  9: m_root_read = new handler_entry_read_dispatch_new< 9, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new< 9, _width_, _ashift_>(this, nullptr); break;
+			case 10: m_root_read = new handler_entry_read_dispatch_new<10, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<10, _width_, _ashift_>(this, nullptr); break;
+			case 11: m_root_read = new handler_entry_read_dispatch_new<11, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<11, _width_, _ashift_>(this, nullptr); break;
+			case 12: m_root_read = new handler_entry_read_dispatch_new<12, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<12, _width_, _ashift_>(this, nullptr); break;
+			case 13: m_root_read = new handler_entry_read_dispatch_new<13, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<13, _width_, _ashift_>(this, nullptr); break;
+			case 14: m_root_read = new handler_entry_read_dispatch_new<14, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<14, _width_, _ashift_>(this, nullptr); break;
+			case 15: m_root_read = new handler_entry_read_dispatch_new<15, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<15, _width_, _ashift_>(this, nullptr); break;
+			case 16: m_root_read = new handler_entry_read_dispatch_new<16, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<16, _width_, _ashift_>(this, nullptr); break;
+			case 17: m_root_read = new handler_entry_read_dispatch_new<17, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<17, _width_, _ashift_>(this, nullptr); break;
+			case 18: m_root_read = new handler_entry_read_dispatch_new<18, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<18, _width_, _ashift_>(this, nullptr); break;
+			case 19: m_root_read = new handler_entry_read_dispatch_new<19, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<19, _width_, _ashift_>(this, nullptr); break;
+			case 20: m_root_read = new handler_entry_read_dispatch_new<20, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<20, _width_, _ashift_>(this, nullptr); break;
+			case 21: m_root_read = new handler_entry_read_dispatch_new<21, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<21, _width_, _ashift_>(this, nullptr); break;
+			case 22: m_root_read = new handler_entry_read_dispatch_new<22, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<22, _width_, _ashift_>(this, nullptr); break;
+			case 23: m_root_read = new handler_entry_read_dispatch_new<23, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<23, _width_, _ashift_>(this, nullptr); break;
+			case 24: m_root_read = new handler_entry_read_dispatch_new<24, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<24, _width_, _ashift_>(this, nullptr); break;
+			case 25: m_root_read = new handler_entry_read_dispatch_new<25, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<25, _width_, _ashift_>(this, nullptr); break;
+			case 26: m_root_read = new handler_entry_read_dispatch_new<26, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<26, _width_, _ashift_>(this, nullptr); break;
+			case 27: m_root_read = new handler_entry_read_dispatch_new<27, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<27, _width_, _ashift_>(this, nullptr); break;
+			case 28: m_root_read = new handler_entry_read_dispatch_new<28, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<28, _width_, _ashift_>(this, nullptr); break;
+			case 29: m_root_read = new handler_entry_read_dispatch_new<29, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<29, _width_, _ashift_>(this, nullptr); break;
+			case 30: m_root_read = new handler_entry_read_dispatch_new<30, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<30, _width_, _ashift_>(this, nullptr); break;
+			case 31: m_root_read = new handler_entry_read_dispatch_new<31, _width_, _ashift_>(this, nullptr); m_root_write = new handler_entry_write_dispatch_new<31, _width_, _ashift_>(this, nullptr); break;
+			default: fatalerror("Unhandled address bus width %d\n", address_width);
+		}
 	}
 
 	// accessors
@@ -1814,6 +1852,9 @@ public:
 	static void write_qword_static(this_type &space, offs_t address, UINT64 data) { if (NATIVE_BITS == 64) space.write_native(address & ~NATIVE_MASK, data); else space.write_direct<UINT64, true>(address, data, U64(0xffffffffffffffff)); }
 	static void write_qword_masked_static(this_type &space, offs_t address, UINT64 data, UINT64 mask) { space.write_direct<UINT64, true>(address, data, mask); }
 
+    handler_entry_read_new <_width_, _ashift_> *m_root_read;
+    handler_entry_write_new<_width_, _ashift_> *m_root_write;
+
 	address_table_read      m_read;             // memory read lookup table
 	address_table_write     m_write;            // memory write lookup table
 	address_table_setoffset m_setoffset;        // memory setoffset lookup table
@@ -2043,51 +2084,9 @@ address_space::address_space(memory_manager &manager, device_memory_interface &m
 	// notify the device
 	memory.set_address_space(spacenum, *this);
 
-	switch (m_config.m_databus_width | m_config.m_addrbus_shift)
-	{
-		case  8|0:
-			m_unmap_r = new handler_entry_read_unmapped_new <0, 0>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<0, 0>(this);
-			break;
-		case 16|0:
-			m_unmap_r = new handler_entry_read_unmapped_new <1, 0>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<1, 0>(this);
-			break;
-		case 16|1:
-			m_unmap_r = new handler_entry_read_unmapped_new <1, 1>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<1, 1>(this);
-			break;
-		case 32|0:
-			m_unmap_r = new handler_entry_read_unmapped_new <2, 0>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<2, 0>(this);
-			break;
-		case 32|1:
-			m_unmap_r = new handler_entry_read_unmapped_new <2, 1>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<2, 1>(this);
-			break;
-		case 32|2:
-			m_unmap_r = new handler_entry_read_unmapped_new <2, 2>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<2, 2>(this);
-			break;
-		case 64|0:
-			m_unmap_r = new handler_entry_read_unmapped_new <3, 0>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<3, 0>(this);
-			break;
-		case 64|1:
-			m_unmap_r = new handler_entry_read_unmapped_new <3, 1>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<3, 1>(this);
-			break;
-		case 64|2:
-			m_unmap_r = new handler_entry_read_unmapped_new <3, 2>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<3, 2>(this);
-			break;
-		case 64|3:
-			m_unmap_r = new handler_entry_read_unmapped_new <3, 3>(this);
-			m_unmap_r = new handler_entry_write_unmapped_new<3, 3>(this);
-			break;
-		default:
-			fatalerror("Unhandled/invalid datawidth/address shift combination %d/%d\n", m_config.m_databus_width, m_config.m_addrbus_shift);
-	}
+	// created by address_space_specific
+	m_unmap_r = nullptr;
+	m_unmap_w = nullptr;
 }
 
 
@@ -2111,166 +2110,166 @@ address_space &address_space::allocate(memory_manager &manager, const address_sp
 	// allocate one of the appropriate type
 	bool large = (config.addr2byte_end(0xffffffffUL >> (32 - config.m_addrbus_width)) >= (1 << 18));
 
-	switch (config.data_width() | config.addrbus_shift())
+	switch (config.data_width() | (-config.addr_shift()))
 	{
 		case  8|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<0, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<0, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 16|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<1, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<1, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 16|1:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<1, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<1, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 32|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 32|1:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 32|2:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<2, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 64|0:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 0, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 0, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 64|1:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 1, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 1, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 64|2:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 2, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 2, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 
 		case 64|3:
 			if (config.endianness() == ENDIANNESS_LITTLE)
 			{
 				if (large)
-					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 3, ENDIANNESS_LITTLE, false>(manager, memory, spacenum, config.addr_width());
 			}
 			else
 			{
 				if (large)
-					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    true >(manager, memory, spacenum);
+					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    true >(manager, memory, spacenum, config.addr_width());
 				else
-					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    false>(manager, memory, spacenum);
+					return *new address_space_specific<3, 3, ENDIANNESS_BIG,    false>(manager, memory, spacenum, config.addr_width());
 			}
 	}
 	throw emu_fatalerror("Invalid width %d specified for address_space::allocate", config.data_width());
