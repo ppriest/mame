@@ -3,5 +3,10 @@ build:
   image: teaci/msys64
   shell: mingw64
   pull: true
+  environment:
+    - SUBTARGET=tiny
+    - MINGW64=/c/msys64/mingw64
+    - MAME=mametiny64.exe
   commands:
-    - make SUBTARGET=tiny MINGW64=/c/msys64/mingw64
+    - make && $$MAME -validate
+  
