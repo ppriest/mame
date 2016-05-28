@@ -12,6 +12,7 @@ build:
     - SOURCES=src/mame/drivers/pacman.cpp
   commands:
     - pacman -S winpty
+    - winpty --help
     - winpty echo testing winpty
 #    - make && echo before validate && winpty ./$MAME_EXE -validate
   
