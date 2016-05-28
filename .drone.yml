@@ -11,9 +11,8 @@ build:
     - MAME_EXE=mametiny.exe
     - SOURCES=src/mame/drivers/pacman.cpp
   commands:
-    - pacman -S -q --noprogressbar --noconfirm winpty
-    - winpty echo testing winpty
-#    - make && echo before validate && winpty ./$MAME_EXE -validate
+    - make
+    - ./$MAME_EXE -validate
   
 notify:
   email:
