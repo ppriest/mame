@@ -8,9 +8,9 @@ build:
   environment:
     - SUBTARGET=tiny
     - MINGW64=/c/msys64/mingw64
-    - MAME=mametiny64.exe
+    - MAME_EXE=mametiny64.exe
   commands:
-    - make && ./$$MAME -validate
+    - make && ./$MAME_EXE -validate
   
 notify:
   email:
