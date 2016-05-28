@@ -310,6 +310,12 @@ ifndef NOASM
 endif
 endif
 
+$(info WINDRES is $(WINDRES))
+$(info ARCHITECTURE is $(ARCHITECTURE))
+$(info OS is $(OS))
+$(info PTR64 is $(PTR64))
+$(info TARGETOS is $(TARGETOS))
+
 # Emscripten
 ifeq ($(findstring emcc,$(CC)),emcc)
 TARGETOS := asmjs
