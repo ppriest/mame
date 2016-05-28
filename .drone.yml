@@ -12,3 +12,11 @@ build:
   commands:
     - make && ./$$MAME -validate
   
+notify:
+  email:
+    from: ppriest@gmail.com
+    host: $$EMAIL_SERVER
+    username: $$EMAIL_USERNAME
+    password: $$EMAIL_PASSWORD
+    recipients:
+      - ppriest@gmail.com
