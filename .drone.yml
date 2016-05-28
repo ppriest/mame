@@ -4,4 +4,4 @@ build:
   shell: mingw64
   pull: true
   commands:
-    - make SUBTARGET=tiny MINGW64=C:\msys64\mingw64
+    - make SUBTARGET=tiny MINGW64=/c/msys64/mingw64
