@@ -10,11 +10,11 @@ build:
     - MINGW64=/c/msys64/mingw64
     - MAME_EXE=mametiny64.exe
   commands:
-    - make && ./$MAME_EXE -validate
+    - echo foo && echo "$MAME_EXE" && echo bar
   
 notify:
   email:
-    from: ppriest@gmail.com
+    from: tourniquet@gmx.net
     host: $$EMAIL_SERVER
     username: $$EMAIL_USERNAME
     password: $$EMAIL_PASSWORD
