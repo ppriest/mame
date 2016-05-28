@@ -3,6 +3,8 @@ build:
   image: teaci/msys64
   shell: mingw64
   pull: true
+  branches:
+    -master
   environment:
     - SUBTARGET=tiny
     - MINGW64=/c/msys64/mingw64
