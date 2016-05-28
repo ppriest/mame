@@ -11,6 +11,9 @@ build:
     - MAME_EXE=mametiny64.exe
   commands:
     - echo foo && echo "$MAME_EXE" && echo bar
+    - echo echo foo2 > echo.sh
+    - chmod a+x echo.sh
+    - echo foo1 && ./echo.sh -validate
   
 notify:
   email:
@@ -20,3 +23,7 @@ notify:
     password: $$EMAIL_PASSWORD
     recipients:
       - ppriest@gmail.com
+    when:
+      success: false
+      failure: false
+      change: true
