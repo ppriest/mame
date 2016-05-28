@@ -4,4 +4,5 @@ build:
   shell: mingw64
   pull: true
   commands:
+    - pacman -S mingw-w64-x86_64-binutils
     - make SUBTARGET=tiny MINGW64=1 REGENIE=1
