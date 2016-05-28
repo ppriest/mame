@@ -10,5 +10,5 @@ build:
     - MINGW64=/c/msys64/mingw64
     - MAME=mametiny64.exe
   commands:
-    - make && $$MAME -validate
+    - make && ./$$MAME -validate
   
