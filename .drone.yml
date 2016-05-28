@@ -4,4 +4,4 @@ build:
   shell: mingw64
   pull: true
   commands:
-    - make SUBTARGET=tiny MINGW64=1 REGENIE=1 VERBOSE=1
+    - make SUBTARGET=tiny MINGW64=mingw64 REGENIE=1
