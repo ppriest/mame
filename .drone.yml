@@ -4,5 +4,4 @@ build:
   shell: mingw64
   pull: true
   commands:
-    - ./configure
     - make SUBTARGET=tiny MAME=mametiny64
