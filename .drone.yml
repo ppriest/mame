@@ -13,11 +13,11 @@ build:
   commands:
      - echo Failed test && false
 #    - make
-#    - ./$MAME_EXE -validate || echo "Validation successful"
+#    - ./$MAME_EXE -validate && echo "Validation successful"
 
 notify:
   irc:
-    prefix: build
+    prefix: build-ppriest
     nick: $$IRC_USER
     channel: #mame-dev
     server:
