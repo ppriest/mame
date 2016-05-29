@@ -11,8 +11,24 @@ build:
     - MAME_EXE=mametiny.exe
 #    - SOURCES=src/mame/drivers/pacman.cpp
   commands:
-    - make
-    - ./$MAME_EXE -validate || echo "Validation successful"
+     - echo Failed test && false
+#    - make
+#    - ./$MAME_EXE -validate || echo "Validation successful"
+
+notify:
+  irc:
+    prefix: build
+    nick: $$IRC_USER
+    channel: #mame-dev
+    server:
+      host: $$IRC_HOST
+      port: $$IRC_PORT
+      password: $$IRC_PASS
+      tls: true
+	when:
+      success: false
+      failure: true
+      change: true	   
   
 notify:
   email:
