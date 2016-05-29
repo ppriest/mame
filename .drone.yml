@@ -16,20 +16,20 @@ build:
 #    - ./$MAME_EXE -validate && echo "Validation successful"
 # test 2
 
-notify:
-  irc:
-    prefix: build-ppriest
-    nick: $$IRC_USER
-    channel: mame-dev
-    server:
-      host: $$IRC_HOST
-      port: $$IRC_PORT
-      password: $$IRC_PASS
-      tls: true
-    when:
-      success: false
-      failure: true
-      change: true
+#notify:
+#  irc:
+#    prefix: build-ppriest
+#    nick: $$IRC_USER
+#    channel: mame-dev
+#    server:
+#      host: $$IRC_HOST
+#      port: $$IRC_PORT
+#      password: $$IRC_PASS
+#      tls: true
+#    when:
+#      success: false
+#      failure: true
+#      change: true
   
   email:
     from: tourniquet@gmx.net
