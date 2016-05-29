@@ -16,7 +16,7 @@ build:
   
 notify:
   email:
-    from: ppriest@gmail.com
+    from: tourniquet@gmx.net
     host: $$EMAIL_SERVER
     username: $$EMAIL_USERNAME
     password: $$EMAIL_PASSWORD
