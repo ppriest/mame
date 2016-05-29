@@ -19,9 +19,7 @@ notify:
   irc:
     prefix: build-ppriest
     nick: $$IRC_USER
-    channel: #mame-dev
     channel: #ppriest
-    recipient: Tourniquet
     server:
       host: $$IRC_HOST
       port: $$IRC_PORT
