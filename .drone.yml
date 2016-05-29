@@ -25,12 +25,11 @@ notify:
       port: $$IRC_PORT
       password: $$IRC_PASS
       tls: true
-	when:
+    when:
       success: false
       failure: true
       change: true	   
   
-notify:
   email:
     from: tourniquet@gmx.net
     host: $$EMAIL_SERVER
