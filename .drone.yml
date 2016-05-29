@@ -9,7 +9,7 @@ build:
     - SUBTARGET=tiny
     - MINGW32=/c/msys32/mingw32
     - MAME_EXE=tiny.exe
-    - SOURCES=src/mame/drivers/pacman.cpp
+#    - SOURCES=src/mame/drivers/pacman.cpp
   commands:
     - make
     - ./$MAME_EXE -validate
@@ -24,5 +24,5 @@ notify:
       - ppriest@gmail.com
     when:
       success: false
-      failure: false
+      failure: true
       change: true
