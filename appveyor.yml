@@ -1,0 +1,18 @@
+version: 1.0.{build}
+os: unstable
+install:
+  - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows;%PATH%"
+  - set MSYSTEM=MINGW64
+  - set PreferredToolArchitecture=x64
+  
+build_script:
+  - bash -lc "exec 0</dev/null && cd $APPVEYOR_BUILD_FOLDER && make SUBTARGET=tiny OPTIMIZE=0 vs2015"
+  - msbuild "build\projects\windows\mametiny\vs2015\mametiny.sln" /property:Configuration=Debug /property:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+
+test_script:
+  - \projects\mame\mametiny64d.exe -sound dsound -keyboardprovider dinput -joystickprovider dinput -lightgunprovider rawinput -mouseprovider rawinput -validate
+
+after_test:
+  - 7za a mametiny64d-appveyor-%APPVEYOR_BUILD_NUMBER%.7z %APPVEYOR_BUILD_FOLDER%\mametiny64d.exe
+  - appveyor PushArtifact mametiny64d-appveyor-%APPVEYOR_BUILD_NUMBER%.7z
+  
