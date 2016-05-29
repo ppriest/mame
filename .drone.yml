@@ -19,7 +19,7 @@ notify:
   irc:
     prefix: build-ppriest
     nick: $$IRC_USER
-    channel: mame-dev
+    channel: #mame-dev
     recipient: Tourniquet
     server:
       host: $$IRC_HOST
