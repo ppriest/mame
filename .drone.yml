@@ -19,7 +19,7 @@ notify:
   irc:
     prefix: build-ppriest
     nick: $$IRC_USER
-    channel: ppriest
+    channel: mame-dev
     server:
       host: $$IRC_HOST
       port: $$IRC_PORT
