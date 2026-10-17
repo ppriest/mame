@@ -113,14 +113,13 @@ from the flash chip. This usually involves running through a security check and 
 the CompactFlash, or from the add-on ROM board.
 
 * Security *
-TODO: Expand as more is learnt.
-
 The security is handled by at least three parts, the FPGA, the CPLD and the PIC18.
 he PIC18 loads the FPGA with a bitstream that is customised by Heber for each manufacturer.
 What this entails isn't yet known, but it is known the development board has most/all of this removed.
 This means that the PIC18 is essentially a dongle for each game and needs to be dumped. Whilst it contains the bitstream,
 its also probably stored in an encrypted for and decrypted within the Heber CPLD/ASIC, as the FPGA bitstream lines connect
 to this part, not the PIC18.
+What the CPU sees of the PIC18 and of the FPGA unlock is described in pl6_pic.h and pl6_fpga.h.
 
 GPU/Dual GPU: Commented out due to errors and there is not a currently suitable GPU core for the Pluto 6.
 
@@ -131,6 +130,10 @@ pl6_dev:    Heber's official development kit for the Pluto 6. Only ships with a 
             This "game" requires a bootable (FAT32 with Active partition) CHD, else it does nothing visually.
             The CHD in this driver is an image of the CF card that was supplied by Heber in the SDK for demo purposes.
             Security and FPGA encryption is disabled on this model.
+pl6_lgk:    The CF card has BOOT.S19, a 512KB boot ROM image that loads LetsGetKraken_data.s19 and LetsGetKraken_nondata.s19.
+            Only the second of these is on the card. The game does not drive the VFD as an MSC1937: AUX0 clocks 8-bit
+            ASCII with control codes, inverted on AUX1, LSB first. The tijkpots boot ROM output is not readable as an
+            MSC1937 either.
 
 EINT3: DUART INT?
 
@@ -203,6 +206,7 @@ public:
 	{ }
 
 	void pluto6_dev(machine_config &config) ATTR_COLD;
+	void pluto6_gsquared(machine_config &config) ATTR_COLD;
 	void pluto6_betcom(machine_config &config) ATTR_COLD;
 	void pluto6_jpmrom(machine_config &config) ATTR_COLD;
 
@@ -220,8 +224,10 @@ public:
 	void cfuart_rx_b_w(uint8_t state) { m_maincpu->rx2_w(state); }
 
 	// I2C Stuff
-	void pluto_sda(uint8_t state);
-	void pluto_scl(uint8_t state);
+	void i2c_sda_w(int state);
+	void i2c_scl_w(int state);
+	int i2c_sda_r();
+	void pic_sda_w(int state) { m_pic_sda = state; }
 
 	uint8_t duart_read(offs_t offset) { return m_duart->read(offset); }
 	void duart_write(offs_t offset, uint8_t data){ m_duart->write(offset, data); }
@@ -229,8 +235,6 @@ public:
 	void duart_rx_b_w(uint8_t state) { m_duart->rx_b_w(state); }
 	void duart_tx_a_w(uint8_t state) { m_fpga->duart_tx_a_w(state); }
 	void duart_tx_b_w(uint8_t state) { m_fpga->duart_tx_b_w(state); }
-
-	static constexpr feature_type unemulated_features() { return feature::PROTECTION; }
 
 protected:
 	virtual void machine_start() override ATTR_COLD;
@@ -266,6 +270,7 @@ private:
 
 	bool eeprom_installed = false;
 	optional_device<i2c_24c04_device> m_i2cmem;
+	int m_pic_sda = 1;
 
 	required_ioport m_inputs;
 	output_finder<64> m_open_drain;
@@ -307,8 +312,7 @@ void pluto6_state::pluto6_map(address_map &map)
 
 void pluto6_state::jpm_rom_map(address_map &map){
 	pluto6_map(map);
-	map(0x00000000, 0x0008ffff).unmaprw();
-	map(0x00000000, 0x001fffff).rom();
+	map(0x00000000, 0x003fffff).rom();
 }
 /*
 void pluto6_state::pluto6v_map(address_map &map)
@@ -452,15 +456,19 @@ void pluto6_state::auxout_callback(offs_t offset, uint8_t data){
 }
 
 // I2C BUS
-void pluto6_state::pluto_sda(uint8_t state){
-	m_maincpu->sda_write(state);
+// The devices see the ColdFire's SDA output; the ColdFire reads the wired-AND of the devices' outputs.
+void pluto6_state::i2c_sda_w(int state){
 	m_pic->sda_write(state);
-	if(eeprom_installed) m_i2cmem->write_sda(state);    // i2cmem seems to not have a write_line call back?
+	if(eeprom_installed) m_i2cmem->write_sda(state);
 }
 
-void pluto6_state::pluto_scl(uint8_t state){
+void pluto6_state::i2c_scl_w(int state){
 	m_pic->scl_write(state);
 	if(eeprom_installed) m_i2cmem->write_scl(state);
+}
+
+int pluto6_state::i2c_sda_r(){
+	return m_pic_sda & (eeprom_installed ? m_i2cmem->read_sda() : 1);
 }
 
 void pluto6_state::install_duart(machine_config &config){
@@ -492,8 +500,9 @@ void pluto6_state::pluto6(machine_config &config){
 	MCF5206E(config, m_maincpu, XTAL(40'000'000));
 	m_maincpu->tx1_w_cb().set(FUNC(pluto6_state::cfuart_tx1_w));
 	m_maincpu->tx2_w_cb().set(FUNC(pluto6_state::cfuart_tx2_w));
-	m_maincpu->sda_w_cb().set(FUNC(pluto6_state::pluto_sda));
-	m_maincpu->scl_w_cb().set(FUNC(pluto6_state::pluto_scl));
+	m_maincpu->sda_w_cb().set(FUNC(pluto6_state::i2c_sda_w));
+	m_maincpu->scl_w_cb().set(FUNC(pluto6_state::i2c_scl_w));
+	m_maincpu->sda_r_cb().set(FUNC(pluto6_state::i2c_sda_r));
 
 	PLUTO6_EXPANSION_SLOT(config, m_exp0);
 	m_exp0->set_default_option(nullptr);
@@ -513,7 +522,7 @@ void pluto6_state::pluto6(machine_config &config){
 	m_fpga->cfuart_rx_b_callback().set(FUNC(pluto6_state::cfuart_rx_b_w));
 
 	HEBER_PLUTO6_PIC(config, m_pic, XTAL(5'000'000));
-	m_pic->sda_rx_cb().set(FUNC(pluto6_state::pluto_sda));
+	m_pic->sda_rx_cb().set(FUNC(pluto6_state::pic_sda_w));
 
 	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 	config.set_default_layout(layout_pl6dev);
@@ -523,7 +532,6 @@ void pluto6_state::pluto6(machine_config &config){
 void pluto6_state::pluto6_dev(machine_config &config){
 	pluto6(config);
 	m_fpga->set_fpga_type(pl6fpga_device::developer_fpga);
-	m_pic->set_address(0xC0);
 
 	m_exp0->option_add("gpu", HEBER_CALYPSO_GPU); // Is optional
 	m_exp0->set_default_option(nullptr);
@@ -532,6 +540,17 @@ void pluto6_state::pluto6_dev(machine_config &config){
 	install_eeprom(config);
 
 	ATA_INTERFACE(config, m_ata).options(ata_devices, "hdd", nullptr, false);
+
+	MSC1937(config, m_vfd);
+	this->led_use_7seg = true;
+}
+
+/* G Squared Pluto 6 */
+void pluto6_state::pluto6_gsquared(machine_config &config){
+	pluto6(config);
+	m_fpga->set_fpga_type(pl6fpga_device::gsquared_fpga);
+
+	ATA_INTERFACE(config, m_ata).options(ata_devices, "hdd", nullptr, true);
 
 	MSC1937(config, m_vfd);
 	this->led_use_7seg = true;
@@ -553,7 +572,6 @@ void pluto6_state::pluto6_jpmrom(machine_config &config){
 	pluto6(config);
 	m_maincpu->set_addrmap(AS_PROGRAM, &pluto6_state::jpm_rom_map);
 	m_fpga->set_fpga_type(pl6fpga_device::jpm_fpga);
-	m_pic->set_address(0xC0);
 
 	ATA_INTERFACE(config, m_ata).options(ata_devices, nullptr, nullptr, true);
 
@@ -594,8 +612,8 @@ ROM_START( pl6_atw )
 	ROM_REGION( 0x400000, "maincpu", ROMREGION_ERASE00 )
 	ROM_LOAD16_BYTE( "27c801-5e1.u1", 0x000001, 0x100000, CRC(4634a98a) SHA1(81cb44b6f17b49d5652bd5deacbf70aec4ac574b) )
 	ROM_LOAD16_BYTE( "27c801-5e2.u2", 0x000000, 0x100000, CRC(0d2601cd) SHA1(eed0d5571d56fa6cb84f579219cd68393a74fbb1) )
-	ROM_LOAD16_BYTE( "27c801-snd1.u3", 0x100001, 0x100000, CRC(3937ec11) SHA1(68f53d4fe29791e6b2ae592c9a3118075946172f) )
-	ROM_LOAD16_BYTE( "27c801-snd2.u4", 0x100000, 0x100000, CRC(804eabd3) SHA1(1903c3ce1d4b3b2f9e4317da9bf391908afd1724) )
+	ROM_LOAD16_BYTE( "27c801-snd1.u3", 0x200001, 0x100000, CRC(3937ec11) SHA1(68f53d4fe29791e6b2ae592c9a3118075946172f) )
+	ROM_LOAD16_BYTE( "27c801-snd2.u4", 0x200000, 0x100000, CRC(804eabd3) SHA1(1903c3ce1d4b3b2f9e4317da9bf391908afd1724) )
 ROM_END
 
 ROM_START( pl6_demo )
@@ -634,9 +652,9 @@ ROM_END
 
 } // anonymous namespace
 
-GAME( 2014, pl6_kfp, 0, pluto6_dev, pluto6, pluto6_state, empty_init, ROT0, "G Squared", "Kung Fu Pounda", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
+GAME( 2014, pl6_kfp, 0, pluto6_gsquared, pluto6, pluto6_state, empty_init, ROT0, "G Squared", "Kung Fu Pounda", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
 GAME( 2014, pl6_atw, 0, pluto6_jpmrom, pluto6, pluto6_state, empty_init, ROT0, "JPM", "Around The World", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
-GAME( 2014, pl6_lgk, 0, pluto6_dev, pluto6, pluto6_state, empty_init, ROT0, "Betcom", "Let's Get Kraken", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
+GAME( 2014, pl6_lgk, 0, pluto6_betcom, pluto6, pluto6_state, empty_init, ROT0, "Betcom", "Let's Get Kraken", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
 GAME( 2014, tijkpots, 0, pluto6_betcom, pluto6, pluto6_state, empty_init, ROT0, "Betcom", "Treasure Island Jackpots", MACHINE_MECHANICAL )
 //GAME( 2004, pl6_fant, 0, pluto6_dev, pluto6, pluto6_state, empty_init, ROT0, "JPM", "Fabtaztec", MACHINE_NOT_WORKING | MACHINE_MECHANICAL )
 GAME( 2004, pl6_cm, 0, pluto6_dev, pluto6, pluto6_state, empty_init, ROT0, "JPM", "Crystal Maze" , MACHINE_NOT_WORKING )

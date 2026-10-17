@@ -31,20 +31,20 @@
     "Bitstream" mappings:
         Each manufacturer could have their own bitstream made which would rearrange the register
         mapping, and change the CRC encoding and unlock key. It's possible this could be changed
-        between games but it seems mostly just manufacturer based on a brief glance. To add a
-        mapping into this device, add a read and write function call and then add the manufacturer/ID
-        to the PlutoFPGA enum. Finally make sure to update the dev_r and dev_w functions so that
-        the mapping can be used.
+        between games but it seems mostly just manufacturer based on a brief glance.
 
-        It's possible that extra features could exist in some bitstreams, but it's unlikely this
-        would have been done. Heber did a good job of shoehorning as much as they could into the chip.
+        In the bitstreams seen so far the register set is the same and only the base addresses of
+        its blocks differ. The bases below were found from the FPGA addresses each program uses:
+            Developer   - pl6_demo boot ROM and DEMO.S19
+            G Squared   - KFP.S19 from the pl6_kfp CF card
+            Betcom      - tijkpots boot ROM, BOOT.S19 and LetsGetKraken_nondata.s19 from the pl6_lgk CF card
+            JPM         - pl6_atw ROMs
 
-        Supported bitstreams:
-            * Developer     - Note: Has no protection check, no CRC/key upload is needed.
-            * Betcom        - Partial mapping
-            * Top Dog       - Unimplemented
-            * Astra         - Unimplemented
-            * JPM           - Unimplemented
+        Unlock: Heber's UnlockSecurity() (security.o in the hardware library) runs each byte of the given
+        code ranges through h = table[h ^ byte] with a fixed 256 byte permutation and writes every h to the
+        CRC register. Nothing is read back. The tijkpots boot ROM and Heber's bootloader 81-17443 issue 8 do the
+        same over 0x00000-0x7ffff. The same table is in the Heber, Betcom, G Squared and JPM code. What the FPGA
+        does with the values is unknown; this device behaves as if unlocked.
 
     Notes:
         FPGA UART routing is currently split into two functions. This is mainly due to the fact
@@ -65,6 +65,7 @@ class pl6fpga_device : public device_t, public device_memory_interface
 public:
 	enum {
 		developer_fpga,
+		gsquared_fpga,
 		betcom_fpga,
 		jpm_fpga,
 		invalid_fpga
@@ -113,7 +114,7 @@ public:
 
 	// Driver device
 	uint32_t dev_r(offs_t offset, uint32_t mem_mask);
-	void dev_w(offs_t offset, uint32_t mem_mask, uint32_t data);
+	void dev_w(offs_t offset, uint32_t data, uint32_t mem_mask);
 
 	void set_fpga_type(int type);
 
@@ -189,10 +190,8 @@ private:
 	uint8_t mpx_row;                // 0x00-0x0F range
 	uint32_t mpx_regs[16][8];       // MPX Lamp/LED state and period data.
 
-	// Mappings
-	void developer_map(address_map &map);
-	void betcom_map(address_map &map);
-	void jpm_map(address_map &map);
+	// Mapping
+	void fpga_map(address_map &map) ATTR_COLD;
 
 	// Read
 	uint8_t fpga_id() { return 0x4d; }

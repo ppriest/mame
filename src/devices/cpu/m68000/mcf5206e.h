@@ -196,9 +196,9 @@ class coldfire_mbus_device : public device_t
 
 		void mbus_map(address_map &map) ATTR_COLD;
 
-		void sda_write(u8 state){ m_tx_in = state; }
 		auto sda_cb() ATTR_COLD { return write_sda.bind(); }
 		auto scl_cb() ATTR_COLD { return write_scl.bind(); }
+		auto sda_r_cb() ATTR_COLD { return read_sda.bind(); }    // state of the SDA line, sampled by the master
 		auto irq_cb() ATTR_COLD { return write_irq.bind(); }
 
 	protected:
@@ -216,8 +216,26 @@ class coldfire_mbus_device : public device_t
 			MEN  = (1 << 7)
 		};
 
-		TIMER_CALLBACK_MEMBER(mbus_callback);
-		IRQ_CALLBACK_MEMBER(mbus_int_callback);
+		// MBSR
+		enum {
+			RXAK = (1 << 0),
+			MIF  = (1 << 1),
+			SRW  = (1 << 2),
+			MAL  = (1 << 4),
+			MBB  = (1 << 5),
+			MAAS = (1 << 6),
+			MCF  = (1 << 7)
+		};
+
+		TIMER_CALLBACK_MEMBER(transfer_complete);
+
+		void set_sda(int state);
+		void set_scl(int state);
+		void start_condition();
+		void stop_condition();
+		void start_transfer(bool receive);
+		void finish_transfer();
+		void update_irq();
 
 		inline u8 madr_r(){ return m_madr; }            // madr is only for when the cpu is a slave i2c device
 		u8 mbdr_r();
@@ -237,14 +255,13 @@ class coldfire_mbus_device : public device_t
 		u8 m_mfdr;
 		u8 m_mbdr;
 
-		bool m_tx_in_progress;
-		bool m_clk_state;
-		u8 m_tx_bit;
-		u8 m_tx_out;
-		u8 m_tx_in;
+		u8 m_sda;               // lines as driven by this module
+		u8 m_scl;
+		bool m_receive;         // direction of the byte in progress
 
-		emu_timer *m_timer_mbus;
+		emu_timer *m_transfer_timer;
 		devcb_write_line write_sda, write_scl, write_irq;
+		devcb_read_line read_sda;
 };
 
 class coldfire_timer_device : public device_t
@@ -348,9 +365,9 @@ public:
 	void rx2_w(int state) { m_uart[1]->rx_a_w(state); }
 
 	// I2C / MBUS
-	void sda_write(u8 state){ m_mbus->sda_write(state); }
 	auto sda_w_cb() { return write_sda.bind(); }
 	auto scl_w_cb() { return write_scl.bind(); }
+	auto sda_r_cb() { return read_sda.bind(); }
 
 	// IRQ/IPL - If using levels, recomended to use the 74148 device with this.
 	void write_ipl(int state){ m_sim->set_external_interrupt_level(state); }
@@ -508,9 +525,11 @@ private:
 	// I2C host/device but Motorola
 	void mbus_sda_w(int state){ write_sda(state); }
 	void mbus_scl_w(int state){ write_scl(state); }
+	int mbus_sda_r(){ return read_sda(); }
 	void mbus_irq_w(int state){ m_sim->set_internal_interrupt_request(MBUS_IRQ, state); }
 	required_device<coldfire_mbus_device> m_mbus;
 	devcb_write_line write_sda, write_scl;
+	devcb_read_line read_sda;
 
 	/* DMA Modules */
 	required_device_array<coldfire_dma_device, 2> m_dma;

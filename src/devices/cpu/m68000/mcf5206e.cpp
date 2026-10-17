@@ -80,6 +80,7 @@ mcf5206e_device::mcf5206e_device(const machine_config &mconfig, const char *tag,
 	, m_mbus(*this, "mbus")
 	, write_sda(*this)
 	, write_scl(*this)
+	, read_sda(*this, 1)
 	, m_dma(*this, "dma%u", 0U)
 {
 }
@@ -113,6 +114,7 @@ void mcf5206e_device::device_add_mconfig(machine_config &config)
 	COLDFIRE_MBUS(config, m_mbus, this->clock());
 	m_mbus->sda_cb().set(FUNC(mcf5206e_device::mbus_sda_w));
 	m_mbus->scl_cb().set(FUNC(mcf5206e_device::mbus_scl_w));
+	m_mbus->sda_r_cb().set(FUNC(mcf5206e_device::mbus_sda_r));
 	m_mbus->irq_cb().set(FUNC(mcf5206e_device::mbus_irq_w));
 
 	COLDFIRE_DMA(config, m_dma[0], this->clock());
@@ -1064,6 +1066,8 @@ void mcf5206e_device::init_regs(bool first_init)
 /*
  * MBUS Module
  * Hosts I2C and Motorola extensions to the format. Can act as a device or host.
+ * Only master mode is implemented. Each byte is clocked out on the SDA/SCL lines when its
+ * nine SCL periods have elapsed.
 */
 
 coldfire_mbus_device::coldfire_mbus_device(const machine_config &mconfig, const char *tag, device_t *owner, u32 clock)
@@ -1071,13 +1075,17 @@ coldfire_mbus_device::coldfire_mbus_device(const machine_config &mconfig, const 
 	, write_sda(*this)
 	, write_scl(*this)
 	, write_irq(*this)
+	, read_sda(*this, 1)
 {
 }
 
 
 void coldfire_mbus_device::device_start()
 {
-	m_timer_mbus = timer_alloc( FUNC( coldfire_mbus_device::mbus_callback ), this );
+	m_transfer_timer = timer_alloc(FUNC(coldfire_mbus_device::transfer_complete), this);
+
+	m_sda = 1;
+	m_scl = 1;
 
 	save_item(NAME(m_madr));
 	save_item(NAME(m_mbcr));
@@ -1085,11 +1093,9 @@ void coldfire_mbus_device::device_start()
 	save_item(NAME(m_mfdr));
 	save_item(NAME(m_mbdr));
 
-	save_item(NAME(m_tx_in_progress));
-	save_item(NAME(m_clk_state));
-	save_item(NAME(m_tx_bit));
-	save_item(NAME(m_tx_out));
-	save_item(NAME(m_tx_in));
+	save_item(NAME(m_sda));
+	save_item(NAME(m_scl));
+	save_item(NAME(m_receive));
 }
 
 void coldfire_mbus_device::device_reset()
@@ -1097,16 +1103,15 @@ void coldfire_mbus_device::device_reset()
 	m_madr = 0x00;
 	m_mfdr = 0x00;
 	m_mbcr = 0x00;
-	m_mbsr = 0x81;
+	m_mbsr = MCF | RXAK;
 	m_mbdr = 0x00;
+	m_receive = false;
 
-	m_tx_in_progress = false;
-	m_clk_state = 1;
-	m_tx_bit = 0;
-	m_tx_out = 0;
-	m_tx_in = 0;
+	m_transfer_timer->enable(false);
 
-	m_timer_mbus->adjust(attotime::never);
+	set_scl(1);
+	set_sda(1);
+	update_irq();
 }
 
 
@@ -1119,10 +1124,106 @@ void coldfire_mbus_device::mbus_map(address_map &map)
 	map(0x10, 0x10).rw(FUNC(coldfire_mbus_device::mbdr_r), FUNC(coldfire_mbus_device::mbdr_w));
 }
 
-TIMER_CALLBACK_MEMBER(coldfire_mbus_device::mbus_callback)
+void coldfire_mbus_device::set_sda(int state)
 {
-	// TODO: Do bit transfers etc
-	// gamtor wants i2c irqs, as it runs the task based EEPROM checks there.
+	if (m_sda != state)
+	{
+		m_sda = state;
+		write_sda(state);
+	}
+}
+
+void coldfire_mbus_device::set_scl(int state)
+{
+	if (m_scl != state)
+	{
+		m_scl = state;
+		write_scl(state);
+	}
+}
+
+// START or repeated START, leaving SCL low
+void coldfire_mbus_device::start_condition()
+{
+	set_sda(1);
+	set_scl(1);
+	set_sda(0);
+	set_scl(0);
+	m_mbsr |= MBB;
+}
+
+void coldfire_mbus_device::stop_condition()
+{
+	set_sda(0);
+	set_scl(1);
+	set_sda(1);
+	m_mbsr &= ~MBB;
+}
+
+void coldfire_mbus_device::start_transfer(bool receive)
+{
+	// MFDR selects the SCL divider; values from the MCF5xxx divider table
+	static const u16 dividers[64] = {
+		  28,   30,   34,   40,   44,   48,   56,   68,   80,   88,  104,  128,  144,  160,  192,  240,
+		 288,  320,  384,  480,  576,  640,  768,  960, 1152, 1280, 1536, 1920, 2304, 2560, 3072, 3840,
+		  20,   22,   24,   26,   28,   32,   36,   40,   48,   56,   64,   72,   80,   96,  112,  128,
+		 160,  192,  224,  256,  320,  384,  448,  512,  640,  768,  896, 1024, 1280, 1536, 1792, 2048 };
+
+	m_receive = receive;
+	m_mbsr &= ~MCF;
+	m_transfer_timer->adjust(clocks_to_attotime(9 * dividers[m_mfdr & 0x3f]));
+}
+
+void coldfire_mbus_device::finish_transfer()
+{
+	if (m_receive)
+	{
+		u8 data = 0;
+		set_sda(1);
+		for (int i = 0; i < 8; i++)
+		{
+			set_scl(1);
+			data = (data << 1) | (read_sda() & 1);
+			set_scl(0);
+		}
+		m_mbdr = data;
+
+		// acknowledge unless TXAK is set
+		set_sda(BIT(m_mbcr, 3));
+		set_scl(1);
+		set_scl(0);
+		set_sda(1);
+	}
+	else
+	{
+		for (int i = 7; i >= 0; i--)
+		{
+			set_sda(BIT(m_mbdr, i));
+			set_scl(1);
+			set_scl(0);
+		}
+
+		set_sda(1);
+		set_scl(1);
+		if (read_sda())
+			m_mbsr |= RXAK;
+		else
+			m_mbsr &= ~RXAK;
+		set_scl(0);
+	}
+
+	m_mbsr |= MCF | MIF;
+	update_irq();
+}
+
+TIMER_CALLBACK_MEMBER(coldfire_mbus_device::transfer_complete)
+{
+	finish_transfer();
+}
+
+void coldfire_mbus_device::update_irq()
+{
+	write_irq((m_mbcr & MIEN) && (m_mbsr & MIF));
 }
 
 void coldfire_mbus_device::madr_w(u8 data)
@@ -1139,37 +1240,77 @@ void coldfire_mbus_device::mfdr_w(u8 data)
 
 void coldfire_mbus_device::mbcr_w(u8 data)
 {
-	m_mbcr = (data & 0xfc);
 	LOGMASKED(LOG_MBUS, "%s: (M-Bus Control Register) mbcr_w: %02x\n", this->machine().describe_context(), data);
+
+	// complete a byte in progress before changing the bus state
+	if (m_transfer_timer->enabled())
+	{
+		m_transfer_timer->enable(false);
+		finish_transfer();
+	}
+
+	const u8 old = m_mbcr;
+	m_mbcr = data & 0xf8; // RSTA always reads 0
+
+	if (!(data & MEN))
+	{
+		// disabling the module releases the bus and resets the status
+		if (m_mbsr & MBB)
+			stop_condition();
+		m_mbsr = MCF | RXAK;
+	}
+	else if (!(old & MEN))
+	{
+		// MSTA set by the write that enables the module does not generate a START (bfm_sc5 relies on this)
+	}
+	else if (!(old & MSTA) && (data & MSTA))
+		start_condition();
+	else if ((old & MSTA) && !(data & MSTA))
+	{
+		if (m_mbsr & MBB)
+			stop_condition();
+	}
+	else if ((data & MSTA) && (data & RSTA))
+		start_condition();
+
+	update_irq();
 }
 
 u8 coldfire_mbus_device::mbsr_r()
 {
-	int hack = 0x00;
-
-	hack ^= (machine().rand()&0xff);
 	LOGMASKED(LOG_MBUS, "%s: (M-Bus Status Register) mbsr_r: %02x\n", this->machine().describe_context(), m_mbsr);
-	return m_mbsr ^ hack; // will loop on this after a while
+	return m_mbsr;
 }
 
 void coldfire_mbus_device::mbsr_w(u8 data)
 {
-	m_mbsr = (data & 0x14); // MAL & MIF
+	// MAL and MIF are cleared by writing 0
+	m_mbsr &= data | ~(MAL | MIF);
+	update_irq();
 	LOGMASKED(LOG_MBUS, "%s: (M-Bus Status Register) mbsr_w: %02x\n", this->machine().describe_context(), data);
 }
 
 u8 coldfire_mbus_device::mbdr_r()
 {
-	int hack = 0x00;
-	hack ^= (machine().rand()&0xff);
-	LOGMASKED(LOG_MBUS, "%s: (M-Bus Data I/O Register) mbdr_r: %02x\n", this->machine().describe_context(), m_mbdr);
-	return m_mbdr ^ hack;
+	const u8 data = m_mbdr;
+	if (!machine().side_effects_disabled())
+	{
+		LOGMASKED(LOG_MBUS, "%s: (M-Bus Data I/O Register) mbdr_r: %02x\n", this->machine().describe_context(), data);
+
+		// in master receive mode, reading the data register starts the next byte
+		if ((m_mbcr & (MEN | MSTA | MTX)) == (MEN | MSTA))
+			start_transfer(true);
+	}
+	return data;
 }
 
 void coldfire_mbus_device::mbdr_w(u8 data)
 {
 	m_mbdr = data;
 	LOGMASKED(LOG_MBUS, "%s: (M-Bus Data I/O Register) mbdr_w: %02x\n", this->machine().describe_context(), data);
+
+	if ((m_mbcr & (MEN | MSTA | MTX)) == (MEN | MSTA | MTX))
+		start_transfer(false);
 }
 
 

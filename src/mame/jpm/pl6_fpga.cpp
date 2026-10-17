@@ -34,13 +34,16 @@ static const char *const PL6_ROUTE_NAMES[][16] = {
 
 uint8_t pl6fpga_device::xcra_read(){
 	if(!machine().side_effects_disabled()) LOGFPGA( "%s: xcra_read( %02x )\n", this->machine().describe_context(), xcra_reg );
-	// xcra & 0x1 is hard reset
 	return xcra_reg;
 }
 
 void pl6fpga_device::xcra_write(uint8_t data){
 	LOGFPGA( "%s: xcra_write( %02x )\n", this->machine().describe_context(), data );
 	xcra_reg = data;
+
+	// JPM boot code writes 0x01 here after a failed check and then halts
+	if(BIT(data, 0))
+		machine().schedule_soft_reset();
 }
 
 void pl6fpga_device::sfxv_write(uint8_t data){
@@ -205,46 +208,53 @@ void pl6fpga_device::uart_rxd(uint8_t device, int state){
 //************************************
 //  FPGA Bitstream Maps
 //************************************
-void pl6fpga_device::developer_map(address_map &map)
+
+namespace {
+
+struct fpga_layout
 {
+	u16 regs;   // XCRA, ID/XMPX, ISS/SFXVOL, XUCTRL, misc inputs/SFX data, XDURT, CRC
+	u16 mpx;    // lamp and LED multiplex data, 8 periods
+	u16 uart;   // FPGA UARTs and DUART
+	u16 io;     // inputs and open drain outputs
+	u16 aux;    // TTL auxiliary outputs
+};
+
+const fpga_layout fpga_layouts[] =
+{
+	{ 0x0000, 0x0800, 0x1000, 0x1800, 0x1900 },   // developer
+	{ 0x0290, 0x0980, 0x12a0, 0x3800, 0x3900 },   // G Squared
+	{ 0x03b0, 0x0b00, 0x1460, 0x2800, 0x2900 },   // Betcom
+	{ 0x0010, 0x0900, 0x1000, 0x1900, 0x1a00 },   // JPM
+};
+
+} // anonymous namespace
+
+void pl6fpga_device::fpga_map(address_map &map)
+{
+	const fpga_layout &l = fpga_layouts[fpga_type];
+
 	// Regs
-	map(0x0000, 0x0000).rw(FUNC(pl6fpga_device::xcra_read), FUNC(pl6fpga_device::xcra_write));
-	map(0x0001, 0x0001).rw(FUNC(pl6fpga_device::fpga_id), FUNC(pl6fpga_device::xmpx_write));
-	map(0x0002, 0x0002).rw(FUNC(pl6fpga_device::fpga_iss), FUNC(pl6fpga_device::sfxv_write));
-	map(0x0003, 0x0003).rw(FUNC(pl6fpga_device::xuctrl_read), FUNC(pl6fpga_device::xuctrl_write));
-	map(0x0004, 0x0007).portr("IN1");
-	map(0x0004, 0x0005).w(FUNC(pl6fpga_device::sfxr1_write));
-	map(0x0006, 0x0007).w(FUNC(pl6fpga_device::sfxr2_write));
-	map(0x0008, 0x0008).rw(FUNC(pl6fpga_device::xdurt_read), FUNC(pl6fpga_device::xdurt_write));
-	map(0x0009, 0x0009).w(FUNC(pl6fpga_device::crcchk_write));
+	map(l.regs + 0, l.regs + 0).rw(FUNC(pl6fpga_device::xcra_read), FUNC(pl6fpga_device::xcra_write));
+	map(l.regs + 1, l.regs + 1).rw(FUNC(pl6fpga_device::fpga_id), FUNC(pl6fpga_device::xmpx_write));
+	map(l.regs + 2, l.regs + 2).rw(FUNC(pl6fpga_device::fpga_iss), FUNC(pl6fpga_device::sfxv_write));
+	map(l.regs + 3, l.regs + 3).rw(FUNC(pl6fpga_device::xuctrl_read), FUNC(pl6fpga_device::xuctrl_write));
+	map(l.regs + 4, l.regs + 7).portr("IN1");
+	map(l.regs + 4, l.regs + 5).w(FUNC(pl6fpga_device::sfxr1_write));
+	map(l.regs + 6, l.regs + 7).w(FUNC(pl6fpga_device::sfxr2_write));
+	map(l.regs + 8, l.regs + 8).rw(FUNC(pl6fpga_device::xdurt_read), FUNC(pl6fpga_device::xdurt_write));
+	map(l.regs + 9, l.regs + 9).w(FUNC(pl6fpga_device::crcchk_write));
 	// MPX Lamps
-	map(0x0800, 0x081f).w(FUNC(pl6fpga_device::lamp_write));
+	map(l.mpx, l.mpx + 0x1f).w(FUNC(pl6fpga_device::lamp_write));
 	// UART
-	map(0x1002, 0x1002).rw(FUNC(pl6fpga_device::xfpurt0_read), FUNC(pl6fpga_device::xfpurt0_write));
-	//map(0x1003, 0x1003).w(FUNC(pl6fpga_device::fpuart0_rx));?                         // FPUART0 RX
-	map(0x1006, 0x1006).rw(FUNC(pl6fpga_device::xfpurt1_read), FUNC(pl6fpga_device::xfpurt1_write));
-	//map(0x1007, 0x1007).w(FUNC(pl6fpga_device::fpuart1_rx));?                         // FPUART1 RX
+	map(l.uart + 2, l.uart + 2).rw(FUNC(pl6fpga_device::xfpurt0_read), FUNC(pl6fpga_device::xfpurt0_write));
+	map(l.uart + 6, l.uart + 6).rw(FUNC(pl6fpga_device::xfpurt1_read), FUNC(pl6fpga_device::xfpurt1_write));
 	// DUART
-	map(0x1010, 0x101f).rw(FUNC(pl6fpga_device::duart_r), FUNC(pl6fpga_device::duart_w));
+	map(l.uart + 0x10, l.uart + 0x1f).rw(FUNC(pl6fpga_device::duart_r), FUNC(pl6fpga_device::duart_w));
 	// IO
-	map(0x1800, 0x1803).r(FUNC(pl6fpga_device::input_r));
-	map(0x1800, 0x1807).w(FUNC(pl6fpga_device::output_write));
-	map(0x1900, 0x191f).w(FUNC(pl6fpga_device::aux_write));
-}
-
-void pl6fpga_device::betcom_map(address_map &map){
-	map(0x03b9, 0x03b9).w(FUNC(pl6fpga_device::crcchk_write));
-	map(0x2900, 0x2907).w(FUNC(pl6fpga_device::aux_write));
-}
-
-void pl6fpga_device::jpm_map(address_map &map){
-	map(0x0010, 0x0010).rw(FUNC(pl6fpga_device::xcra_read), FUNC(pl6fpga_device::xcra_write));  // ?
-	//map(0x0011, 0x0011).rw(FUNC(pl6fpga_device::), FUNC(pl6fpga_device::));
-	map(0x0018, 0x0018).w(FUNC(pl6fpga_device::crcchk_write));
-	map(0x0900, 0x091f).w(FUNC(pl6fpga_device::lamp_write));    // ?
-	map(0x1900, 0x1903).rw(FUNC(pl6fpga_device::input_r), FUNC(pl6fpga_device::output_write));      // ?
-	map(0x1904, 0x1904).w(FUNC(pl6fpga_device::xmpx_write));    // ?
-	map(0x1a00, 0x1a07).w(FUNC(pl6fpga_device::aux_write));     // ?
+	map(l.io, l.io + 3).r(FUNC(pl6fpga_device::input_r));
+	map(l.io, l.io + 7).w(FUNC(pl6fpga_device::output_write));
+	map(l.aux, l.aux + 7).w(FUNC(pl6fpga_device::aux_write));
 }
 
 //************************************
@@ -290,14 +300,9 @@ device_memory_interface::space_config_vector pl6fpga_device::memory_space_config
 }
 
 void pl6fpga_device::set_fpga_type(int type){
-	if(!(type >= invalid_fpga)){
+	if(type < invalid_fpga){
 		fpga_type = type;
-		switch(fpga_type){
-			case developer_fpga: m_space_config.m_internal_map = address_map_constructor(FUNC(pl6fpga_device::developer_map), this); break;
-			case betcom_fpga: m_space_config.m_internal_map = address_map_constructor(FUNC(pl6fpga_device::betcom_map), this); break;
-			case jpm_fpga: m_space_config.m_internal_map = address_map_constructor(FUNC(pl6fpga_device::jpm_map), this); break;
-			default: break;
-		}
+		m_space_config.m_internal_map = address_map_constructor(FUNC(pl6fpga_device::fpga_map), this);
 	}
 }
 
@@ -314,7 +319,6 @@ void pl6fpga_device::device_start(){
 }
 
 void pl6fpga_device::device_reset(){
-	fpga_type = invalid_fpga;
 	xcra_reg = 0;
 	xuctrl_reg = 0;
 	xdurt_reg = 0;

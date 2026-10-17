@@ -21,10 +21,26 @@ When the Pluto 6 is powered up, it does the following:
         * PIC18 Revision
         * PIC18 Signature
 
+The CPU sees it as an I2C device with byte registers, selected by a sub-address written before each
+access (register list from Heber's pic18.h, formats from the pic18.o driver in the Pluto 6 hardware library):
+    0x00        RTC, seconds since 2000-01-01 00:00:00, 4 bytes LSB first (written to set the time)
+    0x01-0x0a   power down switch log entries, 4 byte timestamp + switch states, timestamp 0 = empty
+    0x0b        clear switch log (sub-address write only)
+    0x0c        percentage key
+    0x0d        stake (bits 6-4) and jackpot (bits 3-0) key
+    0x0e, 0x0f  DIL switches SW1, SW2 (1 = on)
+    0x10        status
+    0x11        CSD revision
+    0x12        signature, 4 bytes
+    0x13        RTC with 1/128 s count, 5 bytes
+    0x14        customer data write: byte count, then up to 8 bytes
+    0x15        customer data read
+
     TODO:
-        * _almost_ everything.
         * "upload" FPGA bitstream
         * Hold CPU in reset?
+        * status, revision and signature values are unknown
+        * order of the switch log entries is unverified
 */
 
 #ifndef MAME_JPM_PL6_PIC_H
@@ -32,41 +48,47 @@ When the Pluto 6 is powered up, it does the following:
 
 #pragma once
 
-#include "dirtc.h"
 #include "machine/i2chle.h"
 
 INPUT_PORTS_EXTERN(pluto6_csd_pic);
 
 class pl6pic_device :
 	public device_t,
-	public i2c_hle_interface,
-	public device_rtc_interface
+	public device_nvram_interface,
+	public i2c_hle_interface
 {
 public:
 	pl6pic_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock = 0);
 
 	auto sda_rx_cb(){ return write_sda.bind(); }
 
+	DECLARE_INPUT_CHANGED_MEMBER(security_switch_changed);
+
 protected:
-	virtual void device_start() override;
+	virtual void device_start() override ATTR_COLD;
 
-	virtual void rtc_clock_updated(int year, int month, int day, int day_of_week, int hour, int minute, int second) override;
+	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
 
-	virtual bool rtc_feature_y2k() const override { return true; }
-	virtual bool rtc_battery_backed() const override { return true; }
-	virtual bool rtc_feature_leap_year() const override { return true; }
+	// device_nvram_interface
+	virtual void nvram_default() override;
+	virtual bool nvram_read(util::read_stream &file) override;
+	virtual bool nvram_write(util::write_stream &file) override;
 
-	virtual ioport_constructor device_input_ports() const override;
-
-	virtual void write_data(u16 offset, u8 data) override { };
+	// i2c_hle_interface
+	virtual u8 read_data(u16 offset) override;
+	virtual void write_data(u16 offset, u8 data) override;
+	virtual bool has_subaddress() const override { return false; }
+	virtual void i2c_start() override;
+	virtual void i2c_stop() override;
 	virtual const char *get_tag() override { return tag(); }
 
 private:
+	static constexpr unsigned LOG_ENTRIES = 10;
+
 	TIMER_CALLBACK_MEMBER(heartbeat_callback);
 
-	uint8_t m_rtc_minute;
-	uint8_t m_rtc_hour;
-	uint8_t m_rtc_day;
+	u32 rtc_seconds() const;
+	u8 reg_byte(u8 reg, unsigned index);
 
 	emu_timer *m_timer;
 
@@ -77,6 +99,17 @@ private:
 	required_ioport m_stake;
 	required_ioport m_perc;
 	required_ioport m_secsw;
+
+	s64 m_rtc_base = 0;         // host clock in seconds since 2000 when emulation started
+	u8 m_reg = 0;               // register selected by the last sub-address
+	u8 m_write_count = 0;       // bytes written since the last START, including the sub-address
+	u8 m_read_count = 0;        // bytes read since the last START
+	u8 m_latched[5]{};          // multi-byte register being read, captured on its first byte
+
+	// battery backed
+	s32 m_rtc_adjust = 0;       // set time minus host clock
+	u8 m_log[LOG_ENTRIES][5]{};
+	u8 m_customer_data[8]{};
 };
 
 DECLARE_DEVICE_TYPE(HEBER_PLUTO6_PIC, pl6pic_device)
