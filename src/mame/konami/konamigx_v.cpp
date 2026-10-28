@@ -469,7 +469,9 @@ void konamigx_state::konamigx_mixer(screen_device &screen, bitmap_rgb32 &bitmap,
 		}
 	}
 
-	const u32 start_addr = m_type3_spriteram_bank ? 0x800 : 0;
+	// The 056734 sets double-buffer the sprite list: each ESC command names the half of sprite RAM
+	// to write, alternating, and the game sets objscan to the half just written.
+	const u32 start_addr = (m_type3_spriteram_bank || (m_objscan_bank && BIT(m_gx_wrport1_0, 6))) ? 0x800 : 0;
 
 	for (int x = 0; x < 256; ++x)
 	{

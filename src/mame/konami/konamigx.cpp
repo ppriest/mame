@@ -1565,6 +1565,7 @@ void konamigx_esc_state::add_esc(machine_config &config, u16 key, u8 cfg, u32 fe
 	K056734(config, m_esc, MASTER_CLOCK); // TODO: clock not verified
 	m_esc->set_key(key, cfg);
 	m_esc->set_fetch_scramble(fetch_xor, fetch_lanes);
+	m_objscan_bank = true;
 	m_esc->set_host_space(m_maincpu, AS_PROGRAM);
 	m_esc->irq_cb().set(FUNC(konamigx_esc_state::esc_irq_w));
 }
